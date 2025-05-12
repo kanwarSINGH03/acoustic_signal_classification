@@ -1,0 +1,12 @@
+Look into these feature extraction methods->
+The commonly usedtime domain features are 
+amplitude envelope,8 
+RMS energy,9 
+zero crossing rate,10-13 and 
+linearprediction coefficients.14,15 
+Mostly used spectral features are spectral centroid,16 
+spectral cen-troid magnitude cepstral coefficients 17 and 
+spectral flux.18 
+The spectro-temporal features includeShort-Time Fourier Transform (STFT), spectrogram, 19 
+Mel-spectrogram, and 
+Mel-FrequencyCepstral Coefficients (MFCC)
