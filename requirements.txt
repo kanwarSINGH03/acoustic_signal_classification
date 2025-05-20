@@ -14,3 +14,4 @@ torchaudio
 scipy
 dataclasses
 kaleido
+librosa
