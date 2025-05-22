@@ -61,6 +61,12 @@ class PCA_features(Dataset):
             sys.exit(1)
             return None
         
+    def get_samples(self):
+        return self.X_reduced
+    
+    def get_labels(self):
+        return self.Y.values
+        
     def __getitem__(self, index):
         sample = torch.tensor(self.X_reduced[index], dtype=torch.float32)
         label = torch.tensor(self.Y.iloc[index], dtype=torch.long)
