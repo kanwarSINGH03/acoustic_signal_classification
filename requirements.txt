@@ -15,3 +15,4 @@ scipy
 dataclasses
 kaleido
 librosa
+seaborn
