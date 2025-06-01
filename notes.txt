@@ -10,3 +10,6 @@ spectral flux.18
 The spectro-temporal features includeShort-Time Fourier Transform (STFT), spectrogram, 19 
 Mel-spectrogram, and 
 Mel-FrequencyCepstral Coefficients (MFCC)
+
+
+#try generating synthetic data using autoencoders then compare and classify

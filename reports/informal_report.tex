@@ -33,6 +33,7 @@
 \vspace{0.1in}
 \end{centering}
 \hrule
+\vspace{0.1in}
 
 
 % This is the template your should use for your project report.
@@ -95,16 +96,16 @@ Recordings in this phase have a duration of \textbf{0.75 seconds} and \textbf{36
         \caption{2 Component PCA Analysis of Phase 1 Data}
         \label{fig:phase1_pca_2_comp}
     \end{figure}
-    \item Waveform visualization shows that drummy sounds dampen relatively slowly and have a longer decay time, while tight sounds dampen quickly and have a shorter decay time.
+    \item Waveform visualization shows that drummy sounds dampen relatively slowly and have a longer decay time, while tight sounds dampen quickly and have a shorter decay time. This could suggest that sounds oscillated more in the hollow structure of the roof that produce the drummy sounds.
     \begin{figure}[H]
         \centering
-        \begin{subfigure}{0.4\textwidth}
+        \begin{subfigure}{0.3\textwidth}
             \includegraphics[width=\textwidth]{../assets/p1_waveform_0.png}
             \caption{Drummy Waveform Visualization (Phase 1)}
             \label{fig:phase1_waveform_0}
         \end{subfigure}
         \hfill
-        \begin{subfigure}{0.4\textwidth}
+        \begin{subfigure}{0.3\textwidth}
             \includegraphics[width=\textwidth]{../assets/p1_waveform_1.png}
             \caption{Tight Waveform Visualization (Phase 1)}
             \label{fig:phase1_waveform_1}
@@ -112,9 +113,108 @@ Recordings in this phase have a duration of \textbf{0.75 seconds} and \textbf{36
         \caption{Waveform visualizations for different drum styles in Phase 1}
         \label{fig:phase1_waveforms}
     \end{figure}
-    \item S
+    \item Explained variance ratio vs Number of components gives the following results:\\
+    Number of components retaining 95\% variance: 396\\
+    Number of components retaining 80\% variance: 87\\
+    Number of components retaining 70\% variance: 48\\
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=0.4\textwidth]{../assets/p1_explained_variance.png}
+        \caption{Explained Variance Ratio vs Number of Components (Phase 1)}
+        \label{fig:phase1_explained_variance_ratio}
+    \end{figure}
 \end{itemize}
 \subsubsection{Phase 2}
 Phase 2 consists of \textbf{9,923 recordings} (from which \textbf{1,483} recordings were \textbf{corrupted with NaN value}s, making it 8,440 recordings; further, there are \textbf{some mis-hits} as well that need to be cleaned later for feature extraction to be done on them). Finally, there are \textbf{3,856 drummy sounds and 3,124 tight sounds (including the mis-hits)}. Each recording has 4800 samples and a duration of \textbf{0.1 seconds}. The recordings are sampled at a rate of \textbf{48 kHz}. The dataset is more balanced than Phase 1, with number of drummy sounds slightly higher than tight sounds.
-
+\paragraph{Findings}
+\begin{itemize}
+    \item Performed a quick PCA analysis (after standardizing the data) and plotted the first two principal components. The 3D scatter plot (PC1 vs PC2 vs Label) indicates that drummy and tight sounds are not linearly separable; both classes are intermixed in the feature space.
+        \begin{figure}[h!]
+            \centering
+            \includegraphics[width=0.4\textwidth]{../assets/p2_pca_3d.png}
+            \caption{2 Component PCA Analysis of Phase 2 Data}
+            \label{fig:phase2_pca_2_comp}
+        \end{figure}
+    \item Waveform visualizations show that drummy sounds decay more slowly and have a longer decay time, while tight sounds decay quickly and have a shorter decay time. This suggests that drummy sounds may result from greater oscillation in the hollow structure of the roof.
+        \begin{figure}[H]
+            \centering
+            \begin{subfigure}{0.3\textwidth}
+                \includegraphics[width=\textwidth]{../assets/p2_waveform_0.png}
+                \caption{Drummy Waveform Visualization (Phase 2)}
+                \label{fig:phase2_waveform_0}
+            \end{subfigure}
+            \hfill
+            \begin{subfigure}{0.3\textwidth}
+                \includegraphics[width=\textwidth]{../assets/p2_waveform_1.png}
+                \caption{Tight Waveform Visualization (Phase 2)}
+                \label{fig:phase2_waveform_1}
+            \end{subfigure}
+            \caption{Waveform visualizations for different drum styles in Phase 2}
+            \label{fig:phase2_waveforms}
+        \end{figure}
+    \item The explained variance ratio versus number of components yields the following results:\\
+        Number of components retaining 95\% variance: 242\\
+        Number of components retaining 80\% variance: 99\\
+        Number of components retaining 70\% variance: 65\\
+        \begin{figure}[H]
+            \centering
+            \includegraphics[width=0.4\textwidth]{../assets/p2_explained_variance.png}
+            \caption{Explained Variance Ratio vs Number of Components (Phase 2)}
+            \label{fig:phase2_explained_variance_ratio}
+        \end{figure}
+\end{itemize}
+\section{Feature Extraction}
+\subsection{PCA}
+\subsubsection{Phase 1 Data}
+\paragraph{PCA / MLP}
+Used PCA to reduce dimensionality and then classified using MLP with one hidden layer of varying number of neurons. The best results were obtained wiht 1000 PCA components and 64 hiddens neurons with test accuracy of 0.838188. Below is the compariosn chart.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{../assets/pca_mlp_comparison.png}
+    \caption{PCA + MLP Results (Phase 1)}
+    \label{fig:p1_pca_mlp_results}
+\end{figure}
+\paragraph{PCA / SVM}
+Used PCA to reduce dimensionality and then classified using SVM with \textbf{RBF kernel}. The best results were obtained with 1000 PCA components and a C value of 100 with test accuracy of averaging around 0.86 if we do multiple runs. Below is confusion matrix for the best run and score chart.
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{../assets/pca_svm_confusion_matrix.png}
+        \caption{PCA + SVM Confusion Matrix (Phase 1)}
+        \label{fig:p1_pca_svm_conf_matrix}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{../assets/pca_svm_score_chart.png}
+        \caption{PCA + SVM Score Chart (Phase 1)}
+        \label{fig:p1_pca_svm_score_chart}
+    \end{subfigure}
+    \caption{PCA + SVM evaluation results for Phase 1: (a) confusion matrix, (b) score chart.}
+    \label{fig:p1_pca_svm_combined}
+\end{figure}
+\subsection{LDA}
+\subsubsection{Phase 1 Data}
+\paragraph{LDA for multiclass classification}
+Used LDA to reduce dimensionality and classification.
+Below is the confusion matrix and score chart for the best run with 1 components.
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{../assets/lda_confusion_matrix.png}
+        \caption{LDA Confusion Matrix (Phase 1)}
+        \label{fig:p1_lda_conf_matrix}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{../assets/lda_score_chart.png}
+        \caption{LDA Score Chart (Phase 1)}
+        \label{fig:p1_lda_score_chart}
+    \end{subfigure}
+    \caption{LDA evaluation results for Phase 1: (a) confusion matrix, (b) score chart.}
+    \label{fig:p1_lda_combined}
+\end{figure}
 \end{document}
