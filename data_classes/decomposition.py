@@ -8,6 +8,7 @@ from torch.utils.data import TensorDataset, DataLoader
 from torch.utils.data import Dataset
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA, MiniBatchDictionaryLearning
+from models import models
 
 
 class PCA_features(Dataset):
@@ -156,95 +157,88 @@ class Extract_Features(Dataset):
 
             case "autoencoder":
 
-                class Autoencoder(nn.Module):
-                    def __init__(self, input_dim: int, latent_dim: int):
-                        super(Autoencoder, self).__init__()
-                        self.encoder = nn.Sequential(
-                            nn.Linear(input_dim, 4096),
-                            nn.ReLU(True),
-                            nn.Linear(4096, 1024),
-                            nn.ReLU(True),
-                            nn.Linear(1024, latent_dim),
-                        )
-                        self.decoder = nn.Sequential(
-                            nn.Linear(latent_dim, 1024),
-                            nn.ReLU(True),
-                            nn.Linear(1024, 4096),
-                            nn.ReLU(True),
-                            nn.Linear(4096, input_dim),
-                            nn.Sigmoid(),
-                        )
+                device = torch.device(
+                    "cuda"
+                    if torch.cuda.is_available()
+                    else "mps" if torch.backends.mps.is_available() else "cpu"
+                )
 
-                    def forward(self, x: torch.Tensor) -> torch.Tensor:
-                        z = self.encoder(x)
-                        x_hat = self.decoder(z)
-                        return x_hat
-
-                    def encode(self, x: torch.Tensor) -> torch.Tensor:
-                        return self.encoder(x)
-
-                    def decode(self, z: torch.Tensor) -> torch.Tensor:
-                        return self.decoder(z)
-
-                device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
                 input_dim = self.kwargs["input_dim"]
                 latent_dim = self.kwargs["latent_dim"]
                 weight_decay = self.kwargs["weight_decay"]
                 lr = self.kwargs["lr"]
 
-                model = Autoencoder(input_dim=input_dim, latent_dim=latent_dim).to(
-                    device
-                )
+                model = models.Autoencoder(
+                    input_dim=input_dim, latent_dim=latent_dim
+                ).to(device)
 
                 criterion = nn.MSELoss()
                 optimizer = optim.Adam(
                     model.parameters(), lr=lr, weight_decay=weight_decay
                 )
-                n_epochs = self.kwargs["n_epochs"]
+                num_epochs = self.kwargs["n_epochs"]
                 batch_size = self.kwargs["batch_size"]
                 X_np = self.X.values.astype(np.float32)
                 X_norm = (X_np - X_np.min()) / (X_np.max() - X_np.min())
                 X_tensor = torch.from_numpy(X_norm)
-                dataset = TensorDataset(X_tensor, X_tensor)
-                dataloader = DataLoader(
-                    dataset, batch_size=batch_size, shuffle=True, drop_last=True
+
+                train_dataset = TensorDataset(X_tensor[:3000], X_tensor[:3000])
+                test_dataset = TensorDataset(X_tensor[3000:], X_tensor[3000:])
+
+                train_loader = DataLoader(
+                    train_dataset, batch_size=batch_size, shuffle=True
+                )
+                test_loader = DataLoader(
+                    test_dataset, batch_size=batch_size, shuffle=False
                 )
 
-                for epoch in range(1, n_epochs + 1):
+                for epoch in range(num_epochs):
                     model.train()
-                    running_loss = 0.0
+                    epoch_loss = 0.0
 
-                    for batch_idx, (batch_X, _) in enumerate(dataloader):
-                        batch_X = batch_X.to(device)  # (16, 36000)
+                    for audios, _labels in train_loader:
+                        audios = audios.to(device)
+
+                        outputs = model(audios)
+                        loss = criterion(outputs, audios)
+
                         optimizer.zero_grad()
-
-                        # Forward pass: encode → decode
-                        reconstructed = model(batch_X)
-
-                        # Compute loss
-                        loss = criterion(reconstructed, batch_X)
-
-                        # Backprop + optimize
                         loss.backward()
                         optimizer.step()
 
-                        running_loss += loss.item()
-                        if (batch_idx + 1) % 100 == 0:
-                            avg_loss = running_loss / 100
-                            print(
-                                f"Epoch [{epoch}/{n_epochs}], "
-                                f"Batch [{batch_idx+1}/{len(dataloader)}], "
-                                f"Loss: {avg_loss:.6f}"
-                            )
-                            running_loss = 0.0
+                        epoch_loss += loss.item() * audios.size(0)
+
+                    avg_loss = epoch_loss / len(train_loader.dataset)
+                    print(
+                        f"Epoch [{epoch+1}/{num_epochs}], Reconstruction Loss: {avg_loss:.6f}"
+                    )
 
                 model.eval()
-                with torch.no_grad():
-                    X_all = X_tensor.to(device)  # (3309, 36000)
-                    latent_codes = model.encode(X_all)  # (3309, 128)
-                    latent_codes_np = latent_codes.cpu().numpy()
 
-                return latent_codes_np
+                train_latents = []
+
+                test_latents = []
+
+                with torch.no_grad():
+                    for audios, labels in train_loader:
+                        audios = audios.to(device)
+                        z = model.encode(audios)
+                        train_latents.append(z.cpu())
+
+                    train_latents = torch.cat(train_latents, dim=0)
+
+                    for audios, labels in test_loader:
+                        audios = audios.to(device)
+                        z = model.encode(audios)
+                        test_latents.append(z.cpu())
+
+                    test_latents = torch.cat(
+                        test_latents, dim=0
+                    )  # shape: (N_test, latent_dim)
+
+                    return np.concatenate(
+                        (train_latents.numpy(), test_latents.numpy()), axis=0
+                    )
 
     def get_samples(self) -> np.ndarray:
         """

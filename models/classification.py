@@ -1,3 +1,4 @@
+
 from torch import nn
 
 
@@ -14,3 +15,4 @@ class MLP(nn.Module):
     def forward(self, x):
         return self.model(x)
     
+
