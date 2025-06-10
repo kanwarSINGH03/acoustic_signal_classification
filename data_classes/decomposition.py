@@ -155,8 +155,88 @@ class Extract_Features(Dataset):
                 mbdl.fit(self.X.values)
                 return mbdl.transform(self.X.values)
 
-            case "autoencoder":
+            case "autoencoder_cnn":
 
+                device = torch.device(
+                    "cuda"
+                    if torch.cuda.is_available()
+                    else "mps" if torch.backends.mps.is_available() else "cpu"
+                )
+
+                weight_decay = self.kwargs["weight_decay"]
+                lr = self.kwargs["lr"]
+
+                model = models.Autoencoder_CNN().to(device)
+
+                criterion = nn.MSELoss()
+                optimizer = optim.Adam(
+                    model.parameters(), lr=lr, weight_decay=weight_decay
+                )
+                num_epochs = self.kwargs["n_epochs"]
+                batch_size = self.kwargs["batch_size"]
+                X_np = self.X.values.astype(np.float32)
+                X_norm = (X_np - X_np.min()) / (X_np.max() - X_np.min())
+                X_tensor = torch.from_numpy(X_norm)
+
+                train_dataset = TensorDataset(X_tensor[:3000], X_tensor[:3000])
+                test_dataset = TensorDataset(X_tensor[3000:], X_tensor[3000:])
+
+                train_loader = DataLoader(
+                    train_dataset, batch_size=batch_size, shuffle=True
+                )
+                test_loader = DataLoader(
+                    test_dataset, batch_size=batch_size, shuffle=False
+                )
+
+                for epoch in range(num_epochs):
+                    model.train()
+                    epoch_loss = 0.0
+
+                    for audios, _labels in train_loader:
+                        audios = audios.unsqueeze(1).to(device)   # now (batch, 1, 36000)
+                        outputs = model(audios)
+                        loss = criterion(outputs, audios)
+
+                        optimizer.zero_grad()
+                        loss.backward()
+                        optimizer.step()
+
+                        epoch_loss += loss.item() * audios.size(0)
+
+                    avg_loss = epoch_loss / len(train_loader.dataset)
+                    print(
+                        f"Epoch [{epoch+1}/{num_epochs}], Reconstruction Loss: {avg_loss:.6f}"
+                    )
+
+                model.eval()
+
+                train_latents = []
+
+                test_latents = []
+
+                with torch.no_grad():
+                    for audios, labels in train_loader:
+                        audios = audios.unsqueeze(1).to(device)
+                        z = model.encode(audios)
+                        train_latents.append(z.cpu())
+
+                    train_latents = torch.cat(train_latents, dim=0)
+
+                    for audios, labels in test_loader:
+                        audios = audios.unsqueeze(1).to(device)
+                        z = model.encode(audios)
+                        test_latents.append(z.cpu())
+
+                    test_latents = torch.cat(
+                        test_latents, dim=0
+                    )  # shape: (N_test, latent_dim)
+
+                    latents =  np.concatenate(
+                        (train_latents.numpy(), test_latents.numpy()), axis=0
+                    )
+                    return latents.reshape(latents.shape[0], -1)
+               
+            case "autoencoder_linear":
                 device = torch.device(
                     "cuda"
                     if torch.cuda.is_available()
