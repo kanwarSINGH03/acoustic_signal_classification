@@ -1,6 +1,7 @@
 from typing import Optional
 import numpy as np
 import pandas as pd
+from numpy.lib.stride_tricks import sliding_window_view
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -169,7 +170,7 @@ class Extract_Features(Dataset):
                 model = models.Autoencoder_CNN().to(device)
 
                 criterion = nn.MSELoss()
-                optimizer = optim.Adam(
+                optimizer = optim.SGD(
                     model.parameters(), lr=lr, weight_decay=weight_decay
                 )
                 num_epochs = self.kwargs["n_epochs"]
@@ -193,7 +194,7 @@ class Extract_Features(Dataset):
                     epoch_loss = 0.0
 
                     for audios, _labels in train_loader:
-                        audios = audios.unsqueeze(1).to(device)   # now (batch, 1, 36000)
+                        audios = audios.unsqueeze(1).to(device)  # now (batch, 1, 36000)
                         outputs = model(audios)
                         loss = criterion(outputs, audios)
 
@@ -231,12 +232,13 @@ class Extract_Features(Dataset):
                         test_latents, dim=0
                     )  # shape: (N_test, latent_dim)
 
-                    latents =  np.concatenate(
+                    latents = np.concatenate(
                         (train_latents.numpy(), test_latents.numpy()), axis=0
                     )
                     return latents.reshape(latents.shape[0], -1)
-               
+
             case "autoencoder_linear":
+
                 device = torch.device(
                     "cuda"
                     if torch.cuda.is_available()
@@ -320,6 +322,19 @@ class Extract_Features(Dataset):
                         (train_latents.numpy(), test_latents.numpy()), axis=0
                     )
 
+            case "amplitude_envelope":
+                frame_size = self.kwargs["frame_size"]
+                hop_length = self.kwargs["hop_length"]
+
+
+                windows = sliding_window_view(self.X, window_shape=frame_size, axis=1)
+
+                windows = windows[:, ::hop_length, :]
+
+                envelope = windows.max(axis=2)
+
+                return envelope
+
     def get_samples(self) -> np.ndarray:
         """
         Return the raw numpy array of features.
@@ -342,6 +357,6 @@ class Extract_Features(Dataset):
         """
         Return one (feature, label) pair as PyTorch tensors.
         """
-        sample = torch.tensor(self.X_reduced[index], dtype=torch.float32)
-        label = torch.tensor(self.Y.iloc[index], dtype=torch.long)
+        sample = torch.tensor(self.get_samples()[index], dtype=torch.float32)
+        label = torch.tensor(self.get_labels()[index], dtype=torch.long)
         return sample, label

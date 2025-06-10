@@ -38,28 +38,23 @@ class Autoencoder_CNN(nn.Module):
     def __init__(self):
         super(Autoencoder_CNN, self).__init__()
         self.encoder = nn.Sequential(
-            nn.Conv1d(1, 2, kernel_size=3, padding=1),
-            nn.MaxPool1d(4),
+            nn.Conv1d(1, 6, kernel_size=3, padding=1),  # 1→6 channels
             nn.ReLU(True),
-            nn.Conv1d(2, 5, kernel_size=3, padding=1),
-            nn.MaxPool1d(4),
+            nn.MaxPool1d(12),  # downsample by 12
+            nn.Conv1d(6, 10, kernel_size=3, padding=1),  # 6→10 channels
             nn.ReLU(True),
-            nn.Conv1d(5, 10, kernel_size=3, padding=1),
-            nn.MaxPool1d(4),
+            nn.MaxPool1d(12),  # downsample by 12 again
         )
 
+        # Decoder: mirror of encoder with upsample and transposed-convs
         self.decoder = nn.Sequential(
-            nn.Upsample(scale_factor=4, mode="nearest"),
-            nn.ConvTranspose1d(10, 5, kernel_size=3, padding=1, output_padding=0),
+            nn.Upsample(scale_factor=12, mode="nearest"),  # upsample by 12
+            nn.ConvTranspose1d(10, 6, kernel_size=3, padding=1),
             nn.ReLU(True),
-            nn.Upsample(scale_factor=4, mode="nearest"),
-            nn.ConvTranspose1d(5, 3, kernel_size=3, padding=1, output_padding=0),
-            nn.ReLU(True),
-            nn.Upsample(scale_factor=4, mode="nearest"),
-            nn.ConvTranspose1d(3, 2, kernel_size=3, padding=1, output_padding=32),
-            nn.ReLU(True),
-            nn.ConvTranspose1d(2, 1, kernel_size=1),
-            nn.Sigmoid(),
+            nn.Upsample(
+                scale_factor=12, mode="nearest"
+            ),  # upsample back to original length
+            nn.ConvTranspose1d(6, 1, kernel_size=3, padding=1),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
