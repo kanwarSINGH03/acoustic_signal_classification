@@ -32,3 +32,21 @@ class MLP_2_layer(nn.Module):
 
     def forward(self, x):
         return self.model(x)
+class MLP_3_layer(nn.Module):
+
+    def __init__(self, nb_hidden, input_dim, output_dim, **kwargs):
+        super(MLP_3_layer, self).__init__()
+        self.kwargs = kwargs
+        self.model = nn.Sequential(
+            nn.Linear(input_dim, nb_hidden),
+            nn.ReLU(),
+            nn.Linear(nb_hidden, nb_hidden//2),
+            nn.ReLU(),
+            nn.Linear(nb_hidden//2, nb_hidden//4),
+            nn.ReLU(),
+            nn.Dropout(p=self.kwargs["dropout_rate"]),
+            nn.Linear(nb_hidden//4, output_dim),
+        )
+
+    def forward(self, x):
+        return self.model(x)

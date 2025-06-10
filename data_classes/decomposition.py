@@ -10,6 +10,7 @@ from torch.utils.data import Dataset
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA, MiniBatchDictionaryLearning
 from models import models
+from librosa.feature import rms, zero_crossing_rate
 
 
 class PCA_features(Dataset):
@@ -326,7 +327,6 @@ class Extract_Features(Dataset):
                 frame_size = self.kwargs["frame_size"]
                 hop_length = self.kwargs["hop_length"]
 
-
                 windows = sliding_window_view(self.X, window_shape=frame_size, axis=1)
 
                 windows = windows[:, ::hop_length, :]
@@ -334,6 +334,26 @@ class Extract_Features(Dataset):
                 envelope = windows.max(axis=2)
 
                 return envelope
+            case "rms_energy":
+                all_signals = []
+                frame_size = self.kwargs["frame_size"]
+                hop_length = self.kwargs["hop_length"]
+                for signal in self.X.values:
+                    rms_signal = rms(
+                        y=signal, frame_length=frame_size, hop_length=hop_length
+                    )[0]
+                    all_signals.append(rms_signal)
+                return np.array(all_signals)
+            case "zero_crossing_rate":
+                all_signals = []
+                frame_size = self.kwargs["frame_size"]
+                hop_length = self.kwargs["hop_length"]
+                for signal in self.X.values:
+                    zcr_signal = zero_crossing_rate(
+                        y=signal, frame_length=frame_size, hop_length=hop_length
+                    )[0]
+                    all_signals.append(zcr_signal)
+                return np.array(all_signals)
 
     def get_samples(self) -> np.ndarray:
         """
