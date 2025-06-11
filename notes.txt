@@ -2,28 +2,22 @@ Look into these feature extraction methods->
 The commonly usedtime domain features are 
 
 
-
-decay time(part of amplitude envelope)
-
-amplitude envelope,
-**The way that a sound’s amplitude evolves over time is called its amplitude envelope. The amplitude envelope of most musical notes, and indeed most acoustic sounds, can be characterized as having essentially four parts: 1) the attack, when the note is initiated, during which the sound goes from silence to full amplitude, 2) the decay, when the sound loses some of its initial energy and the amplitude diminishes gradually from its peak, 3) in some sounds there is a sustain portion, during which the player holds the amplitude at a fairly steady level, and 4) the release, when the player explicitly causes the sound to end. The use of line segments to describe these four parts—attack, decay, sustain, and release—can successfully emulate the amplitude envelope of many sounds. For that reason, the so-called ADSR envelope generator has become a canonical tool of sound synthesis. An ADSR envelope can be defined by four numbers, representing attack time, decay time, sustain level (the amplitude to which the sound decays and is then sustained constant by the player), and release time.
-
-https://music.arts.uci.edu/dobrian/maxcookbook/adsr-amplitude-envelope#:~:text=The%20way%20that%20a%20sound's,player)%2C%20and%20release%20time.
-** 
-
-8 RMS energy,
-
 wavelet Transform,
 
-9 zero crossing rate,
+
 
 10-13 and linearprediction coefficients.
+
+
 
 14,15 Mostly used spectral features are spectral centroid,
 
 16 spectral cen-troid magnitude cepstral coefficients 
 
 17 and spectral flux. 
+
+
+
 
 18 The spectro-temporal features includeShort-Time Fourier Transform (STFT), spectrogram, 
 
@@ -35,3 +29,14 @@ wavelet Transform,
 
 DONE
 autoencoder
+
+decay time(part of amplitude envelope)
+
+amplitude envelope,
+**The way that a sound’s amplitude evolves over time is called its amplitude envelope. The amplitude envelope of most musical notes, and indeed most acoustic sounds, can be characterized as having essentially four parts: 1) the attack, when the note is initiated, during which the sound goes from silence to full amplitude, 2) the decay, when the sound loses some of its initial energy and the amplitude diminishes gradually from its peak, 3) in some sounds there is a sustain portion, during which the player holds the amplitude at a fairly steady level, and 4) the release, when the player explicitly causes the sound to end. The use of line segments to describe these four parts—attack, decay, sustain, and release—can successfully emulate the amplitude envelope of many sounds. For that reason, the so-called ADSR envelope generator has become a canonical tool of sound synthesis. An ADSR envelope can be defined by four numbers, representing attack time, decay time, sustain level (the amplitude to which the sound decays and is then sustained constant by the player), and release time.
+https://music.arts.uci.edu/dobrian/maxcookbook/adsr-amplitude-envelope#:~:text=The%20way%20that%20a%20sound's,player)%2C%20and%20release%20time.
+** 
+
+8 RMS energy,
+
+9 zero crossing rate,
