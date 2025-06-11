@@ -91,4 +91,5 @@ def test(
     if report:
         return report
     if score:
-        return score
+        return test_acc
+
