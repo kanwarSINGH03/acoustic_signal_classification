@@ -11,6 +11,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA, MiniBatchDictionaryLearning
 from models import models
 from librosa.feature import rms, zero_crossing_rate
+import pywt
 
 
 class PCA_features(Dataset):
@@ -354,6 +355,37 @@ class Extract_Features(Dataset):
                     )[0]
                     all_signals.append(zcr_signal)
                 return np.array(all_signals)
+            case "wave_transform":
+                scales = range(1, self.kwargs["scales"] + 1)
+                wavelet = self.kwargs["wavelet"]
+
+                cwt_results = []
+                for i in range(len(self.X.values)):
+                    signal = self.X.values[i]
+                    cwt_matrix, freqs = pywt.cwt(signal, scales, wavelet)
+                    cwt_results.append(cwt_matrix)
+                    print(f"Processed signal {i+1}/{len(self.X.values)}", end="\r")
+                cwt_results = np.array(cwt_results)
+
+                def random_frame_sample(cwt_matrix, num_frames=100, seed=None):
+                    if seed is not None:
+                        np.random.seed(seed)
+                    total_frames = cwt_matrix.shape[1]
+                    indices = np.random.choice(
+                        total_frames, size=num_frames, replace=False
+                    )
+                    sampled = cwt_matrix[:, indices]
+                    return sampled
+
+                # Apply on all CWTs
+                num_frames = self.kwargs["num_frames"]
+                sampled_cwts = np.array(
+                    [
+                        random_frame_sample(cwt, num_frames=num_frames)
+                        for cwt in cwt_results
+                    ]
+                )  # shape: (3309, 63, num_frames)
+                return sampled_cwts.transpose(0, 2, 1)  # shape: (3309, num_frames, 63)
 
     def get_samples(self) -> np.ndarray:
         """
