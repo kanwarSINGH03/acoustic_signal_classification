@@ -16,3 +16,4 @@ dataclasses
 kaleido
 librosa
 seaborn
+pywavelets
