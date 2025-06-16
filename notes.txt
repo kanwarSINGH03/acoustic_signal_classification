@@ -19,7 +19,7 @@ wavelet Transform,
 
 
 
-18 The spectro-temporal features includeShort-Time Fourier Transform (STFT), spectrogram, 
+18 The spectro-temporal features include Short-Time Fourier Transform (STFT), spectrogram, 
 
 19 Mel-spectrogram, and Mel-FrequencyCepstral Coefficients (MFCC)
 

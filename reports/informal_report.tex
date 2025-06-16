@@ -217,4 +217,63 @@ Below is the confusion matrix and score chart for the best run with 1 components
     \caption{LDA evaluation results for Phase 1: (a) confusion matrix, (b) score chart.}
     \label{fig:p1_lda_combined}
 \end{figure}
+
+\subsection{Time-Domain Features}
+These features are computed on short frames of the raw waveform and capture simple temporal properties.
+
+\subsubsection{Zero Crossing Rate (ZCR)}
+Extracted ZCR using 128-sample frames and 32-sample hops. Classification results:
+\begin{itemize}
+\item \textbf{SVM (RBF, C=100)}: Test accuracy = 0.7799
+\item \textbf{MLP (1-layer)}: Test accuracy = 0.7832
+\item \textbf{MLP (2-layer)}: Test accuracy = 0.8058
+\item \textbf{MLP (3-layer)}: Test accuracy = 0.8155
+\end{itemize}
+
+\subsubsection{RMS Energy}
+Extracted frame-wise RMS energy with 36-sample frames and 36-sample hops. Classification results:
+\begin{itemize}
+\item \textbf{SVM (RBF, C=100)}: Test accuracy = 0.8285
+\item \textbf{MLP (1-layer)}: Test accuracy = 0.7832
+\item \textbf{MLP (2-layer)}: Test accuracy = 0.8123
+\item \textbf{MLP (3-layer)}: Test accuracy = 0.8414
+\end{itemize}
+
+\subsubsection{Amplitude Envelope}
+Computed the amplitude envelope on 128-sample frames with 16-sample hops. Classification results:
+\begin{itemize}
+\item \textbf{SVM (RBF, C=100)}: Test accuracy = 0.7411
+\item \textbf{MLP (1-layer)}: Test accuracy = 0.7638
+\item \textbf{MLP (2-layer)}: Test accuracy = 0.7961
+\item \textbf{MLP (3-layer)}: Test accuracy = 0.8123
+\end{itemize}
+
+\subsection{Combined Time-Domain Features}
+Concatenated multiple time-domain features frame-wise and retrained the MLP.
+\begin{itemize}
+\item \textbf{Envelope + RMS}: Test accuracy = 0.8317
+\item \textbf{Envelope + ZCR}: Test accuracy = 0.8317
+\item \textbf{RMS + ZCR}: Test accuracy = 0.8447
+\item \textbf{Envelope + RMS + ZCR}: Test accuracy = 0.8641
+\end{itemize}
+
+\subsection{Leave-One-Mine-Out Evaluation}
+I performed a leave-one-mine-out cross-validation using the combined feature vector (Envelope + RMS + ZCR) and an MLP with 3 layers (1024 hidden units, dropout 0.5). Figure~ \textbf{Leave One Out} shows test accuracy for each held-out mine.
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{../assets/leave_one_out_accuracy.png}
+\caption{Leave-One-Mine-Out Performance}
+\label{fig:leave_one_out}
+\end{figure}
+
+Average held-out accuracy: \textbf{0.7754} (drummy vs tight across mines).
+
+\subsection{Continuous Wavelet Transform (CWT)}
+I applied a CWT with the Complex Morlet wavelet (scales=64, 400 frames) and trained a WaveNet-style CNN.
+\begin{itemize}
+\item WaveNet classifier test accuracy = 0.6958
+\end{itemize}
+
+\section{Discussion}
+The RMS energy and combined time-domain features outperform single features. CWT features yield lower accuracy under the current architecture, suggesting further tuning or deeper models are needed.
 \end{document}

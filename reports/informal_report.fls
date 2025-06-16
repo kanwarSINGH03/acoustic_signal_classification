@@ -345,6 +345,11 @@ INPUT ../assets/lda_score_chart.png
 INPUT ../assets/lda_score_chart.png
 INPUT ../assets/lda_score_chart.png
 INPUT ../assets/lda_score_chart.png
+INPUT ../assets/leave_one_out_accuracy.png
+INPUT ../assets/leave_one_out_accuracy.png
+INPUT ../assets/leave_one_out_accuracy.png
+INPUT ../assets/leave_one_out_accuracy.png
+INPUT ../assets/leave_one_out_accuracy.png
 INPUT informal_report.aux
 INPUT ./informal_report.out
 INPUT ./informal_report.out

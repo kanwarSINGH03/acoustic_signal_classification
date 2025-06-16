@@ -1,7 +1,8 @@
 # Fdb version 4
-["pdflatex"] 1748879751.01758 "/Users/kanwarsingh/Desktop/AI/acoustic_signal_classification/reports/informal_report.tex" "informal_report.pdf" "informal_report" 1748879751.868 2
+["pdflatex"] 1750051319.7548 "/Users/kanwarsingh/Desktop/AI/acoustic_signal_classification/reports/informal_report.tex" "informal_report.pdf" "informal_report" 1750051320.6501 2
   "../assets/lda_confusion_matrix.png" 1748586097.0606 14011 3e7b1c3433a8133d6ff025362c8848a7 ""
   "../assets/lda_score_chart.png" 1748586395.0534 43984 22d2ad2b812665304d652f94258eac4d ""
+  "../assets/leave_one_out_accuracy.png" 1750050940.43965 29476 78b1090e6ef165ed47bf5576db92c439 ""
   "../assets/p1_explained_variance.png" 1748466175.60797 23558 e586a60e44e926c141021d604351f5df ""
   "../assets/p1_pca_3d.png" 1747847105.91663 42740 4d7acb2883369dd3201c5ac1fbaa53da ""
   "../assets/p1_waveform_0.png" 1748462113.7485 23571 3275c501cc8c429dedcd40a165322ce5 ""
@@ -13,7 +14,7 @@
   "../assets/pca_mlp_comparison.png" 1748583992.66567 56150 07551321b6f840ccd7e81d0da52ee1bf ""
   "../assets/pca_svm_confusion_matrix.png" 1748584985.61138 14884 13bd14d2ec250e8b17a06ef046cd75b6 ""
   "../assets/pca_svm_score_chart.png" 1748585070.81282 37445 cfd6cf4be98b0b8581f743371c6a18ca ""
-  "/Users/kanwarsingh/Desktop/AI/acoustic_signal_classification/reports/informal_report.tex" 1748879749.69701 10097 edd3c326f808fbed199f0798c737f4bb ""
+  "/Users/kanwarsingh/Desktop/AI/acoustic_signal_classification/reports/informal_report.tex" 1750051318.598 12721 e8317fe2089ef44e79c184d67e9ddc87 ""
   "/usr/local/texlive/2024/texmf-dist/fonts/enc/dvips/base/8r.enc" 1165713224 4850 80dc9bab7f31fb78a000ccfed0e27cab ""
   "/usr/local/texlive/2024/texmf-dist/fonts/map/fontname/texfonts.map" 1577235249 3524 cb3e574dea2d1052e39280babc910dc8 ""
   "/usr/local/texlive/2024/texmf-dist/fonts/tfm/adobe/helvetic/phvb8r.tfm" 1136768653 4484 b828043cbd581d289d955903c1339981 ""
@@ -165,9 +166,9 @@
   "/usr/local/texlive/2024/texmf-var/fonts/map/pdftex/updmap/pdftex.map" 1739226171.68402 5467645 128b85b7cde5f5edc5cb7f1dd7ff8736 ""
   "/usr/local/texlive/2024/texmf-var/web2c/pdftex/pdflatex.fmt" 1739226075 8221423 b3d10b3c4a0d1db89d3fa0ffbc97859c ""
   "/usr/local/texlive/2024/texmf.cnf" 1710266656 577 e590dabc9e28c5b61546e15f63eebcdf ""
-  "informal_report.aux" 1748879751.81506 6221 9572e8ab96413f41851c27759c140d8d "pdflatex"
-  "informal_report.out" 1748879751.81575 1066 42799765413d433bd14e348184345308 "pdflatex"
-  "informal_report.tex" 1748879749.69701 10097 edd3c326f808fbed199f0798c737f4bb ""
+  "informal_report.aux" 1750051320.59627 7513 d873b1c0827d408795cd9d03fa4459ab "pdflatex"
+  "informal_report.out" 1750051320.5971 2464 33b438342d61551ac4a6dcbbd268f3d0 "pdflatex"
+  "informal_report.tex" 1750051318.598 12721 e8317fe2089ef44e79c184d67e9ddc87 ""
   (generated)
   "informal_report.aux"
   "informal_report.log"
