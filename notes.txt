@@ -2,8 +2,6 @@ Look into these feature extraction methods->
 The commonly usedtime domain features are 
 
 
-wavelet Transform,
-
 
 
 10-13 and linearprediction coefficients.
@@ -40,3 +38,13 @@ https://music.arts.uci.edu/dobrian/maxcookbook/adsr-amplitude-envelope#:~:text=T
 8 RMS energy,
 
 9 zero crossing rate,
+
+
+wavelet Transform, 
+
+** take log of cwt 
+
+** try pca + time
+
+** amplitude-> decay time
+
