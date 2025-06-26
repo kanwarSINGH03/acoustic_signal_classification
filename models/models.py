@@ -229,13 +229,13 @@ class DWTNet(nn.Module):
         return L2_decoded, H1_decoded, H2_decoded
     
 class ResidualBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, pool_size=1):
+    def __init__(self, in_channels, out_channels, pool_size=1, stride = 1):
         super().__init__()
         pad = (10 - 1) // 2
         self.conv = nn.Sequential(
-            nn.Conv1d(in_channels,  out_channels, kernel_size=10, padding=pad),
+            nn.Conv1d(in_channels,  out_channels, kernel_size=20, padding=pad, stride = stride),
             nn.ReLU(inplace=True),
-            nn.Conv1d(out_channels, out_channels, kernel_size=10, padding=pad),
+            nn.Conv1d(out_channels, out_channels, kernel_size=20, padding=pad),
         )
         self.pool = nn.MaxPool1d(pool_size) if pool_size > 1 else nn.Identity()
         if pool_size > 1 or in_channels != out_channels:
@@ -262,14 +262,14 @@ class Convolution(nn.Module):
         self.block = nn.Sequential(
             # accept raw audio (B, L) or (B, 1, L)
             # first conv: 1 → 16 channels
-            nn.Conv1d(1, 16, kernel_size=10, padding=(10-1)//2),
+            nn.Conv1d(1, 2, kernel_size=10, padding=(10-1)//2),
             nn.ReLU(inplace=True),
             # Residual stages with 10× downsampling via MaxPool
-            ResidualBlock(16, 32, pool_size=10),  # → (B,32,⌊L/10⌋)
-            ResidualBlock(32, 64, pool_size=10),  # → (B,64,⌊L/100⌋)
-            nn.AdaptiveAvgPool1d(1),              # → (B,64,1)
+            ResidualBlock(2, 5, pool_size=10, stride = 2),  # → (B,32,⌊L/10⌋)
+            ResidualBlock(5, 10, pool_size=10, stride = 2),  # → (B,64,⌊L/100⌋)
+            #nn.AdaptiveAvgPool1d(1),              # → (B,64,1)
             nn.Flatten(),                         # → (B,64)
-            nn.Linear(64, 32),
+            nn.Linear(880, 32),
             nn.ReLU(inplace=True),
             nn.Dropout(0.5),  # dropout for regularization
             nn.Linear(32, 2)
