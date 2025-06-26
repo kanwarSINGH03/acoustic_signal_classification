@@ -1,7 +1,7 @@
 from torch.utils.data import DataLoader
 import torch.nn as nn
 import torch
-
+import matplotlib.pyplot as plt
 
 def train(
     model,
@@ -13,7 +13,6 @@ def train(
     weight_decay: float,
     optim: str,
 ):
-
 
     criterion = nn.CrossEntropyLoss()
     if optim == "adam":
@@ -68,11 +67,9 @@ def train(
 import torch
 from torch.utils.data import DataLoader
 
+
 def test(
-    model_path: str,
-    test_loader: DataLoader,
-    report: bool = False,
-    score: bool = False
+    model_path: str, test_loader: DataLoader, report: bool = False, score: bool = False
 ):
     """
     Load a trained model, evaluate on test_loader, print accuracy,
@@ -82,7 +79,7 @@ def test(
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Load and prepare model
-    model = torch.load(model_path,weights_only=False)
+    model = torch.load(model_path, weights_only=False)
     model.to(device)
     model.eval()
 
@@ -109,21 +106,30 @@ def test(
     print(f"Test accuracy: {test_acc:.4f}")
 
     if report:
-        from sklearn.metrics import confusion_matrix, classification_report
+        from sklearn.metrics import (
+            confusion_matrix,
+            classification_report,
+            ConfusionMatrixDisplay,
+        )
 
         preds_arr = torch.cat(all_preds).numpy()
         trues_arr = torch.cat(all_trues).numpy()
 
-        cm = confusion_matrix(trues_arr, preds_arr)
-        print("Confusion Matrix:\n", cm)
+        cm = confusion_matrix(trues_arr, preds_arr,)
+        ConfusionMatrixDisplay(cm, display_labels=["drummy (0)", "tight (1)"]).plot(
+            cmap="Blues", values_format=".0f"
+        )
+        plt.show()
 
-        print("\nClassification Report:\n",
-              classification_report(
-                  trues_arr,
-                  preds_arr,
-                  target_names=["drummy (0)", "tight (1)"],
-                  zero_division=0
-              ))
+        print(
+            "\nClassification Report:\n",
+            classification_report(
+                trues_arr,
+                preds_arr,
+                target_names=["drummy (0)", "tight (1)"],
+                zero_division=0,
+            ),
+        )
 
     if score:
         return test_acc

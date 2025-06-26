@@ -266,13 +266,13 @@ class Convolution(nn.Module):
             nn.ReLU(inplace=True),
             # Residual stages with 10× downsampling via MaxPool
             ResidualBlock(2, 5, pool_size=10, stride = 2),  # → (B,32,⌊L/10⌋)
-            ResidualBlock(5, 10, pool_size=10, stride = 2),  # → (B,64,⌊L/100⌋)
+            ResidualBlock(5, 8, pool_size=10, stride = 2),  # → (B,64,⌊L/100⌋)
             #nn.AdaptiveAvgPool1d(1),              # → (B,64,1)
             nn.Flatten(),                         # → (B,64)
-            nn.Linear(880, 32),
+            nn.Linear(704, 128),
             nn.ReLU(inplace=True),
             nn.Dropout(0.5),  # dropout for regularization
-            nn.Linear(32, 2)
+            nn.Linear(128, 2)
             # no Softmax: use CrossEntropyLoss
         )
 
