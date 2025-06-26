@@ -65,31 +65,65 @@ def train(
     torch.save(model, model_path)
 
 
+import torch
+from torch.utils.data import DataLoader
+
 def test(
-    model_path: str, test_loader: DataLoader, report: bool = False, score: bool = False
+    model_path: str,
+    test_loader: DataLoader,
+    report: bool = False,
+    score: bool = False
 ):
-    # test on the test set
+    """
+    Load a trained model, evaluate on test_loader, print accuracy,
+    and optionally display a confusion matrix / classification report.
+    """
     print("[INFO] Testing the model")
-    device = torch.device(
-        "cuda"
-        if torch.cuda.is_available()
-        else "mps" if torch.backends.mps.is_available() else "cpu"
-    )
-    model = torch.load(model_path, weights_only=False)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Load and prepare model
+    model = torch.load(model_path,weights_only=False)
     model.to(device)
-    test_correct = 0
+    model.eval()
+
+    # Metrics accumulators
+    correct = 0
+    total = 0
+    all_preds = []
+    all_trues = []
+
+    # Inference loop
     with torch.no_grad():
-        model.eval()
         for x, y in test_loader:
             x, y = x.to(device), y.to(device)
-            pred = model(x)
-            test_correct += (pred.argmax(1) == y).type(torch.float).sum().item()
+            logits = model(x)
+            preds = logits.argmax(dim=1)
+            correct += (preds == y).sum().item()
+            total += y.size(0)
 
-    test_acc = test_correct / len(test_loader.dataset)
+            if report:
+                all_preds.append(preds.cpu())
+                all_trues.append(y.cpu())
+
+    test_acc = correct / total
     print(f"Test accuracy: {test_acc:.4f}")
 
     if report:
-        return report
+        from sklearn.metrics import confusion_matrix, classification_report
+
+        preds_arr = torch.cat(all_preds).numpy()
+        trues_arr = torch.cat(all_trues).numpy()
+
+        cm = confusion_matrix(trues_arr, preds_arr)
+        print("Confusion Matrix:\n", cm)
+
+        print("\nClassification Report:\n",
+              classification_report(
+                  trues_arr,
+                  preds_arr,
+                  target_names=["drummy (0)", "tight (1)"],
+                  zero_division=0
+              ))
+
     if score:
         return test_acc
-

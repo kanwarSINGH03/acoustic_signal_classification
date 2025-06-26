@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import pywt
 
 
 class Autoencoder(nn.Module):
@@ -75,28 +76,28 @@ class WaveNetClassifier(nn.Module):
 
         self.n_filters = 32
         self.filter_width = 3
-        self.dilation_rates = [2 ** i for i in range(6)]  # [1, 2, 4, 8, 16, 32]
+        self.dilation_rates = [2**i for i in range(6)]  # [1, 2, 4, 8, 16, 32]
         in_channels = input_shape[1]  # 64
 
-        self.conv_layers = nn.ModuleList([
-            nn.Conv1d(
-                in_channels=in_channels if i == 0 else self.n_filters,
-                out_channels=self.n_filters,
-                kernel_size=self.filter_width,
-                dilation=d,
-                padding='same'
-            ) for i, d in enumerate(self.dilation_rates)
-        ])
+        self.conv_layers = nn.ModuleList(
+            [
+                nn.Conv1d(
+                    in_channels=in_channels if i == 0 else self.n_filters,
+                    out_channels=self.n_filters,
+                    kernel_size=self.filter_width,
+                    dilation=d,
+                    padding="same",
+                )
+                for i, d in enumerate(self.dilation_rates)
+            ]
+        )
 
-        self.batch_norms = nn.ModuleList([
-            nn.BatchNorm1d(self.n_filters) for _ in self.dilation_rates
-        ])
+        self.batch_norms = nn.ModuleList(
+            [nn.BatchNorm1d(self.n_filters) for _ in self.dilation_rates]
+        )
 
         self.final_conv = nn.Conv1d(
-            in_channels=self.n_filters,
-            out_channels=16,
-            kernel_size=3,
-            padding='same'
+            in_channels=self.n_filters, out_channels=16, kernel_size=3, padding="same"
         )
         self.final_bn = nn.BatchNorm1d(16)
 
@@ -115,3 +116,168 @@ class WaveNetClassifier(nn.Module):
 
         x = self.fc(x)
         return F.softmax(x, dim=1)
+    
+# ------------------------------
+# Fixed DWT Layer
+# ------------------------------
+class DWT_1D(nn.Module):
+    def __init__(self, wavename="db1"):
+        super(DWT_1D, self).__init__()
+        wavelet = pywt.Wavelet(wavename)
+        dec_lo = torch.tensor(wavelet.dec_lo[::-1], dtype=torch.float32)
+        dec_hi = torch.tensor(wavelet.dec_hi[::-1], dtype=torch.float32)
+        self.register_buffer("low_filter", dec_lo.view(1, 1, -1))
+        self.register_buffer("high_filter", dec_hi.view(1, 1, -1))
+
+    def forward(self, x):
+        L = F.conv1d(x, self.low_filter, stride=2)
+        H = F.conv1d(x, self.high_filter, stride=2)
+        return L, H
+
+#sound -> DWT -> Low1 -> Low2
+#           |              High2
+#           | -> High1
+# ------------------------------
+# DWT Block with 2-Level Decomposition
+# ------------------------------
+class WaveletFirstBlock(nn.Module):
+    def __init__(self, wavename='db1'):
+        super().__init__()
+        self.dwt1 = DWT_1D(wavename)
+        self.dwt2 = DWT_1D(wavename)
+
+    def forward(self, x):
+        L1, H1 = self.dwt1(x)  # Level 1: Approximation and Detail
+        L2, H2 = self.dwt2(L1) # Level 2: Further Approximation and Detail
+        return L2, H1, H2  # Average-2, Detail-1, Detail-2
+    
+class ConvBlock(nn.Module):
+    def __init__(self):
+        super(ConvBlock, self).__init__()
+        self.block = nn.Sequential(
+            nn.Conv1d(1, 2, kernel_size=3,padding=1),
+            nn.Tanh(),
+            nn.MaxPool1d(kernel_size=4),
+            nn.Conv1d(2, 5, kernel_size=3, padding=1),
+            nn.Tanh(),
+            nn.MaxPool1d(kernel_size=5),
+            nn.Conv1d(5, 10, kernel_size=3, padding=1),
+            nn.Tanh(),
+            nn.MaxPool1d(kernel_size=5),
+        )
+
+    def forward(self, x):
+        return self.block(x)
+
+class DeConvBlock(nn.Module):
+    def __init__(self):
+        super(DeConvBlock, self).__init__()
+        self.block = nn.Sequential(
+            nn.Upsample(scale_factor=4, mode='nearest'),
+            nn.ConvTranspose1d(10, 5, kernel_size=3, padding=1),
+            nn.Tanh(),
+            nn.Upsample(scale_factor=5, mode='nearest'),
+            nn.ConvTranspose1d(5, 2, kernel_size=3, padding=1),
+            nn.Tanh(),
+            nn.Upsample(scale_factor=5, mode='nearest'),
+            nn.ConvTranspose1d(2, 1, kernel_size=3, padding=1),
+            nn.Tanh(),
+            nn.ConvTranspose1d(1, 1, kernel_size=3, padding=1),
+        )
+
+    def forward(self, x):
+        return self.block(x)
+    
+class DWTNet(nn.Module):
+    def __init__(self, wavename='db1'):
+        super(DWTNet, self).__init__()
+        
+        self.dwt_block = WaveletFirstBlock(wavename)
+
+        self.encoder = nn.ModuleList([
+            ConvBlock(),
+            ConvBlock(),
+            ConvBlock()
+        ])
+        self.decoder = nn.ModuleList([
+            DeConvBlock(),
+            DeConvBlock(),
+            DeConvBlock()
+        ])
+    def forward(self, x):
+
+        L2, H1, H2 = self.dwt_block(x)
+        
+        L2_encoded, H1_encoded, H2_encoded = self.encode(L2, H1, H2)
+
+        L2_decoded, H1_decoded, H2_decoded = self.decode(L2_encoded, H1_encoded, H2_encoded)
+
+        return L2_decoded, H1_decoded, H2_decoded
+
+    def encode(self, L2, H1, H2):
+
+        L2_encoded = self.encoder[0](L2)
+        H1_encoded = self.encoder[1](H1)
+        H2_encoded = self.encoder[2](H2)
+        return L2_encoded, H1_encoded, H2_encoded
+
+    def decode(self, L2_encoded, H1_encoded, H2_encoded):
+        L2_decoded = self.decoder[0](L2_encoded)
+        H1_decoded = self.decoder[1](H1_encoded)
+        H2_decoded = self.decoder[2](H2_encoded)
+
+        return L2_decoded, H1_decoded, H2_decoded
+    
+class ResidualBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, pool_size=1):
+        super().__init__()
+        pad = (10 - 1) // 2
+        self.conv = nn.Sequential(
+            nn.Conv1d(in_channels,  out_channels, kernel_size=10, padding=pad),
+            nn.ReLU(inplace=True),
+            nn.Conv1d(out_channels, out_channels, kernel_size=10, padding=pad),
+        )
+        self.pool = nn.MaxPool1d(pool_size) if pool_size > 1 else nn.Identity()
+        if pool_size > 1 or in_channels != out_channels:
+            layers = [nn.Conv1d(in_channels, out_channels, kernel_size=1)]
+            if pool_size > 1:
+                layers.append(nn.MaxPool1d(pool_size))
+            self.skip = nn.Sequential(*layers)
+        else:
+            self.skip = nn.Identity()
+
+    def forward(self, x):
+        out = self.pool(self.conv(x))
+        skip = self.skip(x)
+        # align length
+        if skip.size(-1) > out.size(-1):
+            skip = skip[..., : out.size(-1)]
+        elif skip.size(-1) < out.size(-1):
+            skip = F.pad(skip, (0, out.size(-1) - skip.size(-1)))
+        return F.relu(out + skip)
+
+class Convolution(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.block = nn.Sequential(
+            # accept raw audio (B, L) or (B, 1, L)
+            # first conv: 1 → 16 channels
+            nn.Conv1d(1, 16, kernel_size=10, padding=(10-1)//2),
+            nn.ReLU(inplace=True),
+            # Residual stages with 10× downsampling via MaxPool
+            ResidualBlock(16, 32, pool_size=10),  # → (B,32,⌊L/10⌋)
+            ResidualBlock(32, 64, pool_size=10),  # → (B,64,⌊L/100⌋)
+            nn.AdaptiveAvgPool1d(1),              # → (B,64,1)
+            nn.Flatten(),                         # → (B,64)
+            nn.Linear(64, 32),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.5),  # dropout for regularization
+            nn.Linear(32, 2)
+            # no Softmax: use CrossEntropyLoss
+        )
+
+    def forward(self, x):
+        # ensure channel dim
+        if x.dim() == 2:
+            x = x.unsqueeze(1)
+        return self.block(x)

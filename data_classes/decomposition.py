@@ -171,7 +171,7 @@ class Extract_Features(Dataset):
 
                 model = models.Autoencoder_CNN().to(device)
 
-                criterion = nn.MSELoss()
+                criterion = nn.criterionLoss()
                 optimizer = optim.SGD(
                     model.parameters(), lr=lr, weight_decay=weight_decay
                 )
@@ -256,7 +256,7 @@ class Extract_Features(Dataset):
                     input_dim=input_dim, latent_dim=latent_dim
                 ).to(device)
 
-                criterion = nn.MSELoss()
+                criterion = nn.criterionLoss()
                 optimizer = optim.Adam(
                     model.parameters(), lr=lr, weight_decay=weight_decay
                 )
@@ -386,6 +386,107 @@ class Extract_Features(Dataset):
                     ]
                 )  # shape: (3309, 63, num_frames)
                 return sampled_cwts.transpose(0, 2, 1)  # shape: (3309, num_frames, 63)
+            case "dwt_transform":
+                wavelet = self.kwargs["wavelet"]
+                level = self.kwargs["level"]
+                dwt_coeff = pywt.wavedec(self.X.values, wavelet=wavelet, level=level)
+                return dwt_coeff[0]  # Return the approximation coefficients
+            case "dwt_net":
+                device = torch.device(
+                    "cuda"
+                    if torch.cuda.is_available()
+                    else "mps" if torch.backends.mps.is_available() else "cpu"
+                )
+
+                weight_decay = self.kwargs["weight_decay"]
+                lr = self.kwargs["lr"]
+
+                model = models.DWTNet("db1").to(device)
+
+                num_epochs = self.kwargs["n_epochs"]
+                batch_size = self.kwargs["batch_size"]
+                X_np = self.X.values.astype(np.float32)
+                X_norm = (X_np - X_np.min()) / (X_np.max() - X_np.min())
+                X_tensor = torch.from_numpy(X_norm)
+
+                train_dataset = TensorDataset(X_tensor[:3000], X_tensor[:3000])
+                test_dataset = TensorDataset(X_tensor[3000:], X_tensor[3000:])
+
+                train_loader = DataLoader(
+                    train_dataset, batch_size=batch_size, shuffle=True
+                )
+                test_loader = DataLoader(
+                    test_dataset, batch_size=batch_size, shuffle=False
+                )
+
+                optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9)
+                scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+                    optimizer,
+                    mode="min",
+                    factor=0.5,
+                    patience=10
+                )
+
+                criterion = nn.MSELoss()
+
+                for epoch in range(1, num_epochs + 1):
+                    model.train()
+                    running_loss = 0.0
+                    for audio, _ in train_loader:
+                        audio = audio.unsqueeze(1).to(device)  # shape (B, 1, 36000)
+                        out_L2, out_H1, out_H2 = model(audio)
+                        with torch.no_grad():
+                            tgt_L2, tgt_H1, tgt_H2 = model.dwt_block(audio)
+                        loss = (
+                            criterion(out_L2, tgt_L2)
+                            + criterion(out_H1, tgt_H1)
+                            + criterion(out_H2, tgt_H2)
+                        )
+                        optimizer.zero_grad()
+                        loss.backward()
+                        optimizer.step()
+                        running_loss += loss.item() * audio.size(0)
+                    epoch_loss = running_loss / len(train_loader.dataset)
+                    scheduler.step(epoch_loss)
+                    print(f"[AE] Epoch {epoch:03d}  Loss: {epoch_loss:.6f}")
+
+                model.eval()
+                train_latents = []
+                test_latents = []
+
+                with torch.no_grad():
+                    for audios, _ in train_loader:
+                        audios = audios.unsqueeze(1).to(device)
+                        L2, H1, H2 = model.dwt_block(audios)
+                        z_L2, z_H1, z_H2 = model.encode(L2, H1, H2)
+                        pool = nn.AdaptiveAvgPool1d(output_size=128)
+                        z_L2 = pool(z_L2.cpu()).to(device)
+                        z_H1 = pool(z_H1.cpu()).to(device)
+                        z_H2 = pool(z_H2.cpu()).to(device)
+                        z = torch.cat([z_L2, z_H1, z_H2], dim=1)
+                        z = z.view(z.size(0), -1)
+                        train_latents.append(z.cpu())
+
+                    train_latents = torch.cat(train_latents, dim=0)
+
+                    for audios, _ in test_loader:
+                        audios = audios.unsqueeze(1).to(device)
+                        L2, H1, H2 = model.dwt_block(audios)
+                        z_L2, z_H1, z_H2 = model.encode(L2, H1, H2)
+                        pool = nn.AdaptiveAvgPool1d(output_size=128)
+                        z_L2 = pool(z_L2.cpu()).to(device)
+                        z_H1 = pool(z_H1.cpu()).to(device)
+                        z_H2 = pool(z_H2.cpu()).to(device)
+                        z = torch.cat([z_L2, z_H1, z_H2], dim=1)
+                        z = z.view(z.size(0), -1)
+                        test_latents.append(z.cpu())
+
+                    test_latents = torch.cat(test_latents, dim=0)
+
+                    latents = np.concatenate(
+                        (train_latents.numpy(), test_latents.numpy()), axis=0
+                    )
+                    return latents.reshape(latents.shape[0], -1)
 
     def get_samples(self) -> np.ndarray:
         """
