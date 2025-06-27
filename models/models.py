@@ -116,7 +116,8 @@ class WaveNetClassifier(nn.Module):
 
         x = self.fc(x)
         return F.softmax(x, dim=1)
-    
+
+
 # ------------------------------
 # Fixed DWT Layer
 # ------------------------------
@@ -134,28 +135,30 @@ class DWT_1D(nn.Module):
         H = F.conv1d(x, self.high_filter, stride=2)
         return L, H
 
-#sound -> DWT -> Low1 -> Low2
+
+# sound -> DWT -> Low1 -> Low2
 #           |              High2
 #           | -> High1
 # ------------------------------
 # DWT Block with 2-Level Decomposition
 # ------------------------------
 class WaveletFirstBlock(nn.Module):
-    def __init__(self, wavename='db1'):
+    def __init__(self, wavename="db1"):
         super().__init__()
         self.dwt1 = DWT_1D(wavename)
         self.dwt2 = DWT_1D(wavename)
 
     def forward(self, x):
         L1, H1 = self.dwt1(x)  # Level 1: Approximation and Detail
-        L2, H2 = self.dwt2(L1) # Level 2: Further Approximation and Detail
+        L2, H2 = self.dwt2(L1)  # Level 2: Further Approximation and Detail
         return L2, H1, H2  # Average-2, Detail-1, Detail-2
-    
+
+
 class ConvBlock(nn.Module):
     def __init__(self):
         super(ConvBlock, self).__init__()
         self.block = nn.Sequential(
-            nn.Conv1d(1, 2, kernel_size=3,padding=1),
+            nn.Conv1d(1, 2, kernel_size=3, padding=1),
             nn.Tanh(),
             nn.MaxPool1d(kernel_size=4),
             nn.Conv1d(2, 5, kernel_size=3, padding=1),
@@ -169,17 +172,18 @@ class ConvBlock(nn.Module):
     def forward(self, x):
         return self.block(x)
 
+
 class DeConvBlock(nn.Module):
     def __init__(self):
         super(DeConvBlock, self).__init__()
         self.block = nn.Sequential(
-            nn.Upsample(scale_factor=4, mode='nearest'),
+            nn.Upsample(scale_factor=4, mode="nearest"),
             nn.ConvTranspose1d(10, 5, kernel_size=3, padding=1),
             nn.Tanh(),
-            nn.Upsample(scale_factor=5, mode='nearest'),
+            nn.Upsample(scale_factor=5, mode="nearest"),
             nn.ConvTranspose1d(5, 2, kernel_size=3, padding=1),
             nn.Tanh(),
-            nn.Upsample(scale_factor=5, mode='nearest'),
+            nn.Upsample(scale_factor=5, mode="nearest"),
             nn.ConvTranspose1d(2, 1, kernel_size=3, padding=1),
             nn.Tanh(),
             nn.ConvTranspose1d(1, 1, kernel_size=3, padding=1),
@@ -187,30 +191,26 @@ class DeConvBlock(nn.Module):
 
     def forward(self, x):
         return self.block(x)
-    
+
+
 class DWTNet(nn.Module):
-    def __init__(self, wavename='db1'):
+    def __init__(self, wavename="db1"):
         super(DWTNet, self).__init__()
-        
+
         self.dwt_block = WaveletFirstBlock(wavename)
 
-        self.encoder = nn.ModuleList([
-            ConvBlock(),
-            ConvBlock(),
-            ConvBlock()
-        ])
-        self.decoder = nn.ModuleList([
-            DeConvBlock(),
-            DeConvBlock(),
-            DeConvBlock()
-        ])
+        self.encoder = nn.ModuleList([ConvBlock(), ConvBlock(), ConvBlock()])
+        self.decoder = nn.ModuleList([DeConvBlock(), DeConvBlock(), DeConvBlock()])
+
     def forward(self, x):
 
         L2, H1, H2 = self.dwt_block(x)
-        
+
         L2_encoded, H1_encoded, H2_encoded = self.encode(L2, H1, H2)
 
-        L2_decoded, H1_decoded, H2_decoded = self.decode(L2_encoded, H1_encoded, H2_encoded)
+        L2_decoded, H1_decoded, H2_decoded = self.decode(
+            L2_encoded, H1_encoded, H2_encoded
+        )
 
         return L2_decoded, H1_decoded, H2_decoded
 
@@ -227,19 +227,24 @@ class DWTNet(nn.Module):
         H2_decoded = self.decoder[2](H2_encoded)
 
         return L2_decoded, H1_decoded, H2_decoded
-    
+
+
 class ResidualBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, pool_size=1, stride = 1):
+    def __init__(self, in_channels, out_channels, pool_size=1, stride=1):
         super().__init__()
-        pad = (10 - 1) // 2
+        pad = 6
         self.conv = nn.Sequential(
-            nn.Conv1d(in_channels,  out_channels, kernel_size=20, padding=pad, stride = stride),
+            nn.Conv1d(
+                in_channels, out_channels, kernel_size=20, padding=pad, stride=stride
+            ),
             nn.ReLU(inplace=True),
             nn.Conv1d(out_channels, out_channels, kernel_size=20, padding=pad),
         )
         self.pool = nn.MaxPool1d(pool_size) if pool_size > 1 else nn.Identity()
         if pool_size > 1 or in_channels != out_channels:
-            layers = [nn.Conv1d(in_channels, out_channels, kernel_size=1)]
+            layers = [
+                nn.Conv1d(in_channels, out_channels, kernel_size=1, stride=stride)
+            ]
             if pool_size > 1:
                 layers.append(nn.MaxPool1d(pool_size))
             self.skip = nn.Sequential(*layers)
@@ -249,31 +254,28 @@ class ResidualBlock(nn.Module):
     def forward(self, x):
         out = self.pool(self.conv(x))
         skip = self.skip(x)
-        # align length
-        if skip.size(-1) > out.size(-1):
-            skip = skip[..., : out.size(-1)]
-        elif skip.size(-1) < out.size(-1):
-            skip = F.pad(skip, (0, out.size(-1) - skip.size(-1)))
+
+        # --- align time dims by cropping both to the shorter length ---
+        L = min(out.size(-1), skip.size(-1))
+        out = out[..., :L]
+        skip = skip[..., :L]
+
         return F.relu(out + skip)
+
 
 class Convolution(nn.Module):
     def __init__(self):
         super().__init__()
         self.block = nn.Sequential(
-            # accept raw audio (B, L) or (B, 1, L)
-            # first conv: 1 → 16 channels
-            nn.Conv1d(1, 2, kernel_size=10, padding=(10-1)//2),
+            nn.Conv1d(1, 2, kernel_size=10, padding=(10 - 1) // 2),
             nn.ReLU(inplace=True),
-            # Residual stages with 10× downsampling via MaxPool
-            ResidualBlock(2, 5, pool_size=10, stride = 2),  # → (B,32,⌊L/10⌋)
-            ResidualBlock(5, 8, pool_size=10, stride = 2),  # → (B,64,⌊L/100⌋)
-            #nn.AdaptiveAvgPool1d(1),              # → (B,64,1)
-            nn.Flatten(),                         # → (B,64)
+            ResidualBlock(2, 5, pool_size=10, stride=2),
+            ResidualBlock(5, 8, pool_size=10, stride=2),
+            nn.Flatten(),
             nn.Linear(704, 128),
             nn.ReLU(inplace=True),
-            nn.Dropout(0.5),  # dropout for regularization
-            nn.Linear(128, 2)
-            # no Softmax: use CrossEntropyLoss
+            nn.Dropout(0.5),
+            nn.Linear(128, 2),
         )
 
     def forward(self, x):

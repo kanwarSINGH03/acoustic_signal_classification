@@ -274,6 +274,58 @@ I applied a CWT with the Complex Morlet wavelet (scales=64, 400 frames) and trai
 \item WaveNet classifier test accuracy = 0.6958
 \end{itemize}
 
-\section{Discussion}
-The RMS energy and combined time-domain features outperform single features. CWT features yield lower accuracy under the current architecture, suggesting further tuning or deeper models are needed.
+\subsection{Discrete Wavelet Transform (DWT) Features}
+Computed level-5 DWT approximation coefficients using the Daubechies 4 wavelet (db4) yielding 1131 coefficients per recording. An MLP (3-layer, 256 hidden units, dropout=0.5) on these coefficients achieved:
+\begin{itemize}
+\item Test accuracy = 0.9223
+\item Precision/Recall/F1 for drummy (0): 0.95 / 0.94 / 0.94 (support = 215)
+\item Precision/Recall/F1 for tight (1): 0.86 / 0.88 / 0.87 (support = 94)
+\end{itemize}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.6\textwidth]{../assets/dwt_confusion_matrix.png}
+\caption{DWT + MLP Confusion Matrix}
+\label{fig:dwt_conf_matrix}
+\end{figure}
+
+\subsection{Combined PCA and Time-Domain Features}
+Concatenated PCA components (95% variance, 396 dims) with time-domain features (Envelope, ZCR, RMS at 128-frame/hop) for a total of 1241 features. An MLP (2-layer, 512 hidden units, dropout=0.5) on this combined feature set achieved:
+\begin{itemize}
+\item Test accuracy = 0.8835
+\item Precision/Recall/F1 for drummy (0): 0.91 / 0.93 / 0.92 (support = 215)
+\item Precision/Recall/F1 for tight (1): 0.82 / 0.79 / 0.80 (support = 94)
+\end{itemize}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.6\textwidth]{../assets/pca_time_confusion_matrix.png}
+\caption{Combined PCA+Time Features Confusion Matrix}
+\label{fig:pca_time_conf_matrix}
+\end{figure}
+
+\subsection{Raw Waveform Convolutional Classifier}
+Trained a residual convolutional network directly on the raw waveform (36000 samples length) with stacked ResidualBlock layers. The model achieved:
+\paragraph{Architecture}
+The classifier is implemented as follows:
+\begin{itemize}
+\item 	extbf{ResidualBlock}: Each block applies two 1D convolutions (kernel size = 20, padding = 6), with an intervening ReLU activation. The output is optionally downsampled via a max-pooling layer (pool size and stride). A skip connection either uses identity or a 1×1 convolution (with matching stride and optional pooling) to align channel dimensions. The block output is the elementwise ReLU of the sum of main and skip paths.
+\item 	extbf{Convolution Module}: The network begins with a Conv1d layer mapping 1→2 channels (kernel size =10, padding=4) and ReLU. This is followed by two ResidualBlock layers:
+\begin{itemize}
+    \item ResidualBlock(2→5, poolsize=10, stride=2)
+    \item ResidualBlock(5→8, poolsize=10, stride=2)
+
+\end{itemize}
+After the residual blocks, we flatten the feature map and use two fully connected layers: 704→128 with ReLU and dropout (0.5), then 128→2 output logits.
+\end{itemize}
+\begin{itemize}
+\item Test accuracy = 0.9644
+\item Precision/Recall/F1 for drummy (0): 0.96 / 0.99 / 0.98 (support = 221)
+\item Precision/Recall/F1 for tight (1): 0.96 / 0.91 / 0.94 (support = 88)
+\end{itemize}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.6\textwidth]{../assets/raw_conv_confusion_matrix.png}
+\caption{Raw Waveform CNN Confusion Matrix}
+\label{fig:raw_conv_conf_matrix}
+\end{figure}
+
 \end{document}
