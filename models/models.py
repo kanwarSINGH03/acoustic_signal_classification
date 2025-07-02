@@ -230,52 +230,59 @@ class DWTNet(nn.Module):
 
 
 class ResidualBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, pool_size=1, stride=1):
+    def __init__(self, in_channels, out_channels, pool_size=1, stride=1, res_net=True):
+        self.res_net = res_net
         super().__init__()
         pad = 6
         self.conv = nn.Sequential(
             nn.Conv1d(
-                in_channels, out_channels, kernel_size=20, padding=pad, stride=stride
+                in_channels, out_channels, kernel_size=40, padding=pad, stride=stride
             ),
             nn.ReLU(inplace=True),
-            nn.Conv1d(out_channels, out_channels, kernel_size=20, padding=pad),
+            nn.Conv1d(out_channels, out_channels, kernel_size=100, padding=pad),
         )
         self.pool = nn.MaxPool1d(pool_size) if pool_size > 1 else nn.Identity()
-        if pool_size > 1 or in_channels != out_channels:
-            layers = [
-                nn.Conv1d(in_channels, out_channels, kernel_size=1, stride=stride)
-            ]
-            if pool_size > 1:
-                layers.append(nn.MaxPool1d(pool_size))
-            self.skip = nn.Sequential(*layers)
-        else:
-            self.skip = nn.Identity()
+        if self.res_net:
+            if pool_size > 1 or in_channels != out_channels:
+                layers = [
+                    nn.Conv1d(in_channels, out_channels, kernel_size=1, stride=stride)
+                ]
+                if pool_size > 1:
+                    layers.append(nn.MaxPool1d(pool_size))
+                self.skip = nn.Sequential(*layers)
+            else:
+                self.skip = nn.Identity()
 
     def forward(self, x):
-        out = self.pool(self.conv(x))
-        skip = self.skip(x)
+        if self.res_net:
+            out = self.pool(self.conv(x))
+            skip = self.skip(x)
 
-        # --- align time dims by cropping both to the shorter length ---
-        L = min(out.size(-1), skip.size(-1))
-        out = out[..., :L]
-        skip = skip[..., :L]
+            # --- align time dims by cropping both to the shorter length ---
+            L = min(out.size(-1), skip.size(-1))
+            out = out[..., :L]
+            skip = skip[..., :L]
 
-        return F.relu(out + skip)
+            return F.relu(out + skip)
+        else:
+            out = self.pool(self.conv(x))
+            return F.relu(out)
 
 
 class Convolution(nn.Module):
     def __init__(self):
         super().__init__()
         self.block = nn.Sequential(
-            nn.Conv1d(1, 2, kernel_size=10, padding=(10 - 1) // 2),
+            nn.Conv1d(1, 10, kernel_size=20, padding=(10 - 1) // 2),
             nn.ReLU(inplace=True),
-            ResidualBlock(2, 5, pool_size=10, stride=2),
-            ResidualBlock(5, 8, pool_size=10, stride=2),
+            ResidualBlock(10, 100, pool_size=10, stride=2, res_net=True),
+            ResidualBlock(100, 650, pool_size=10, stride=2, res_net=True),
+            nn.AdaptiveAvgPool1d(1),
             nn.Flatten(),
-            nn.Linear(704, 128),
+            nn.Linear(650, 64),
             nn.ReLU(inplace=True),
             nn.Dropout(0.5),
-            nn.Linear(128, 2),
+            nn.Linear(64, 2),
         )
 
     def forward(self, x):
