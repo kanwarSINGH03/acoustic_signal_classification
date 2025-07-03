@@ -273,13 +273,13 @@ class Convolution(nn.Module):
     def __init__(self):
         super().__init__()
         self.block = nn.Sequential(
-            nn.Conv1d(1, 10, kernel_size=20, padding=(10 - 1) // 2),
+            nn.Conv1d(1, 2, kernel_size=20, padding=(10 - 1) // 2),
             nn.ReLU(inplace=True),
-            ResidualBlock(10, 100, pool_size=10, stride=2, res_net=True),
-            ResidualBlock(100, 650, pool_size=10, stride=2, res_net=True),
-            nn.AdaptiveAvgPool1d(1),
+            ResidualBlock(2, 5, pool_size=10, stride=2, res_net=True),
+            ResidualBlock(5, 8, pool_size=10, stride=2, res_net=True),
+            nn.AdaptiveAvgPool1d(100),
             nn.Flatten(),
-            nn.Linear(650, 64),
+            nn.Linear(800, 64),
             nn.ReLU(inplace=True),
             nn.Dropout(0.5),
             nn.Linear(64, 2),
