@@ -278,10 +278,9 @@ class Convolution(nn.Module):
             ResidualBlock(2, 5, pool_size=10, stride=2, res_net=True),
             ResidualBlock(5, 8, pool_size=10, stride=2, res_net=True),
             nn.Flatten(),
-            nn.Linear(632, 64),
+            nn.Linear(272, 16),
             nn.ReLU(inplace=True),
-            nn.Dropout(0.5),
-            nn.Linear(64, 2),
+            nn.Linear(16, 2),
         )
 
     def forward(self, x):
