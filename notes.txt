@@ -4,13 +4,9 @@ The commonly usedtime domain features are
 
 
 
-10-13 and linearprediction coefficients.
 
 
 
-14,15 Mostly used spectral features are spectral centroid,
-
-16 spectral cen-troid magnitude cepstral coefficients 
 
 17 and spectral flux. 
 
@@ -48,3 +44,6 @@ wavelet Transform,
 
 ** amplitude-> decay time
 
+
+14,15 Mostly used spectral features are spectral centroid, -> 66% accuracy 
+16 spectral cen-troid magnitude cepstral coefficients 

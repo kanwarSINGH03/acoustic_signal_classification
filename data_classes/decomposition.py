@@ -106,12 +106,13 @@ class Extract_Features(Dataset):
         df_X: pd.DataFrame,
         df_Y: pd.DataFrame,
         feature: str,
+        transform=None,
         **kwargs: Optional[dict],
     ):
         self.X = df_X.reset_index(drop=True)  # keep indices aligned
         self.Y = df_Y.reset_index(drop=True)
         self.feature = feature
-
+        self.transform = transform
         self.kwargs = kwargs
 
         self.X_reduced = self.get_features(feature)
@@ -123,6 +124,9 @@ class Extract_Features(Dataset):
         match feature:
             case "raw":
                 # No feature extraction, just return the raw data
+                # scaler = StandardScaler()
+                # X_scaled = scaler.fit_transform(self.X.values)
+                # return X_scaled
                 return self.X.values
 
             case "pca":
@@ -421,10 +425,7 @@ class Extract_Features(Dataset):
 
                 optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9)
                 scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-                    optimizer,
-                    mode="min",
-                    factor=0.5,
-                    patience=10
+                    optimizer, mode="min", factor=0.5, patience=10
                 )
 
                 criterion = nn.MSELoss()
@@ -512,4 +513,7 @@ class Extract_Features(Dataset):
         """
         sample = torch.tensor(self.get_samples()[index], dtype=torch.float32)
         label = torch.tensor(self.get_labels()[index], dtype=torch.long)
+        if self.transform:
+            sample = self.transform(sample)
+
         return sample, label

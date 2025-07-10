@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pywt
+from typing import Optional
 
 
 class Autoencoder(nn.Module):
@@ -230,25 +231,39 @@ class DWTNet(nn.Module):
 
 
 class ResidualBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, pool_size=1, stride=1, res_net=True):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        pool_size=1,
+        stride=1,
+        res_net=True,
+        pool_stride: Optional[int] = None,
+        k1=40,
+        k2=100,
+    ):
         self.res_net = res_net
         super().__init__()
         pad = 6
         self.conv = nn.Sequential(
             nn.Conv1d(
-                in_channels, out_channels, kernel_size=40, padding=pad, stride=stride
+                in_channels, out_channels, kernel_size=k1, padding=pad, stride=stride
             ),
             nn.ReLU(inplace=True),
-            nn.Conv1d(out_channels, out_channels, kernel_size=100, padding=pad),
+            nn.Conv1d(out_channels, out_channels, kernel_size=k2, padding=pad),
         )
-        self.pool = nn.MaxPool1d(pool_size) if pool_size > 1 else nn.Identity()
+        self.pool = (
+            nn.MaxPool1d(pool_size, stride=pool_stride)
+            if pool_size > 1
+            else nn.Identity()
+        )
         if self.res_net:
             if pool_size > 1 or in_channels != out_channels:
                 layers = [
                     nn.Conv1d(in_channels, out_channels, kernel_size=1, stride=stride)
                 ]
                 if pool_size > 1:
-                    layers.append(nn.MaxPool1d(pool_size))
+                    layers.append(nn.MaxPool1d(pool_size, stride=pool_stride))
                 self.skip = nn.Sequential(*layers)
             else:
                 self.skip = nn.Identity()
@@ -278,9 +293,35 @@ class Convolution(nn.Module):
             ResidualBlock(2, 5, pool_size=10, stride=2, res_net=True),
             ResidualBlock(5, 8, pool_size=10, stride=2, res_net=True),
             nn.Flatten(),
-            nn.Linear(272, 16),
+            nn.Linear(632, 64),
             nn.ReLU(inplace=True),
-            nn.Linear(16, 2),
+            nn.Dropout(0.5),
+            nn.Linear(64, 2),
+        )
+
+    def forward(self, x):
+        # ensure channel dim
+        if x.dim() == 2:
+            x = x.unsqueeze(1)
+        return self.block(x)
+
+
+class Convolution_p2(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.block = nn.Sequential(
+            nn.Conv1d(1, 2, kernel_size=10, padding=(10 - 1) // 2),
+            nn.ReLU(inplace=True),
+            ResidualBlock(
+                2, 3, pool_size=10, stride=2, res_net=True, pool_stride=7, k1=10, k2=10
+            ),
+            ResidualBlock(
+                3, 4, pool_size=10, stride=2, res_net=True, pool_stride=7, k1=10, k2=10
+            ),
+            nn.Flatten(),
+            nn.Linear(96, 25),
+            nn.ReLU(inplace=True),
+            nn.Linear(25, 2),
         )
 
     def forward(self, x):
