@@ -514,6 +514,6 @@ class Extract_Features(Dataset):
         sample = torch.tensor(self.get_samples()[index], dtype=torch.float32)
         label = torch.tensor(self.get_labels()[index], dtype=torch.long)
         if self.transform:
-            sample = self.transform(sample)
+            sample = self.transform(sample).squeeze(0).flatten()
 
         return sample, label

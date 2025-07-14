@@ -329,3 +329,67 @@ class Convolution_p2(nn.Module):
         if x.dim() == 2:
             x = x.unsqueeze(1)
         return self.block(x)
+
+class ConvBiLSTM(nn.Module):
+    """
+    Combined 1D-CNN (with residual blocks) + BiLSTM model.
+    Passes raw waveform through convolutional feature extractor,
+    then feeds sequence of feature vectors into a bidirectional LSTM,
+    and finally classifies based on the last time step.
+    """
+    def __init__(self, hidden_dim: int = 64, output_dim: int = 2, num_lstm_layers: int = 3):
+        super().__init__()
+        # 1D convolutional feature extractor
+        self.conv = nn.Sequential(
+            nn.Conv1d(1, 2, kernel_size=10, padding=(10 - 1) // 2),
+            nn.ReLU(inplace=True),
+            ResidualBlock(
+                in_channels=2,
+                out_channels=5,
+                pool_size=10,
+                stride=2,
+                res_net=True,
+                pool_stride=5,
+                k1=20,
+                k2=20
+            ),
+            ResidualBlock(
+                in_channels=5,
+                out_channels=10,
+                pool_size=10,
+                stride=2,
+                res_net=True,
+                pool_stride=5,
+                k1=20,
+                k2=20
+            ),
+        )
+
+        # Bidirectional LSTM over the conv feature sequence
+        # input_size = number of channels output by conv = 4
+        self.lstm = nn.LSTM(
+            input_size=10,
+            hidden_size=hidden_dim,
+            num_layers=num_lstm_layers,
+            bidirectional=True,
+            batch_first=True
+        )
+
+        # Final classification head
+        self.classifier = nn.Linear(hidden_dim * 2, output_dim)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # x may come in as (batch, time) or (batch, 1, time)
+        if x.dim() == 2:
+            x = x.unsqueeze(1)               # → (batch, 1, time)
+        # Convolutional feature maps → (batch, 4, seq_len)
+        features = self.conv(x)
+        # Prepare for LSTM: (batch, seq_len, 4)
+        features = features.permute(0, 2, 1)
+        # LSTM over time
+        lstm_out, _ = self.lstm(features)   # → (batch, seq_len, hidden_dim*2)
+        # Take the last time step’s output
+        last_step = lstm_out[:, -1, :]      # → (batch, hidden_dim*2)
+        # Classify
+        logits = self.classifier(last_step) # → (batch, output_dim)
+        return logits
