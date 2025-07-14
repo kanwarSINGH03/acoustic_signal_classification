@@ -302,13 +302,13 @@ Concatenated PCA components (95% variance, 396 dims) with time-domain features (
 \label{fig:pca_time_conf_matrix}
 \end{figure}
 
-\subsection{Raw Waveform Convolutional Classifier}
+\subsection{Raw Waveform Convolutional Classifier(Old Architecture)}
 Trained a residual convolutional network directly on the raw waveform (36000 samples length) with stacked ResidualBlock layers. The model achieved:
 \paragraph{Architecture}
 The classifier is implemented as follows:
 \begin{itemize}
-\item 	extbf{ResidualBlock}: Each block applies two 1D convolutions (kernel size = 20, padding = 6), with an intervening ReLU activation. The output is optionally downsampled via a max-pooling layer (pool size and stride). A skip connection either uses identity or a 1×1 convolution (with matching stride and optional pooling) to align channel dimensions. The block output is the elementwise ReLU of the sum of main and skip paths.
-\item 	extbf{Convolution Module}: The network begins with a Conv1d layer mapping 1→2 channels (kernel size =10, padding=4) and ReLU. This is followed by two ResidualBlock layers:
+\item 	\textbf{ResidualBlock}: Each block applies two 1D convolutions (kernel size = 20, padding = 6), with an intervening ReLU activation. The output is optionally downsampled via a max-pooling layer (pool size and stride). A skip connection either uses identity or a 1×1 convolution (with matching stride and optional pooling) to align channel dimensions. The block output is the elementwise ReLU of the sum of main and skip paths.
+\item 	\textbf{Convolution Module}: The network begins with a Conv1d layer mapping 1→2 channels (kernel size =10, padding=4) and ReLU. This is followed by two ResidualBlock layers:
 \begin{itemize}
     \item ResidualBlock(2→5, poolsize=10, stride=2)
     \item ResidualBlock(5→8, poolsize=10, stride=2)
@@ -327,5 +327,117 @@ After the residual blocks, we flatten the feature map and use two fully connecte
 \caption{Raw Waveform CNN Confusion Matrix}
 \label{fig:raw_conv_conf_matrix}
 \end{figure}
+
+\section{Phase 1: Raw Waveform Convolutional Classifier(New Architecture}
+\subsection{Architecture}
+I implemented a deeper 1D ResNet-style CNN directly on the raw 36 000‐sample waveforms:
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.6\textwidth]{../assets/conv_p1_val_vs_train.png}
+  \caption{ResNet Test Confusion Matrix (Phase 1)}
+  \label{fig:p1_resnet_cm}
+\end{figure}
+
+A lighter 1D‐CNN with two ResidualBlock layers (kernels=20, padding=6) and a smaller FC head:
+\begin{itemize}
+  \item Conv1d(1→2) → ReLU → ResidualBlock(2→5) → ResidualBlock(5→8) → Flatten → FC(632→64) → ReLU → FC(64→2).
+\end{itemize}
+\subsection{Results}
+\begin{itemize}
+  \item \textbf{Test accuracy:} 0.9709
+  \item \textbf{Drummy (0):} precision 0.98, recall 0.98, F1 0.98 (support 221)
+  \item \textbf{Tight (1):} precision 0.95, recall 0.94, F1 0.95 (support 88)
+\end{itemize}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.6\textwidth]{../assets/new_arch_conv_p1.png}
+  \caption{Simple CNN Test Confusion Matrix (Phase 1)}
+  \label{fig:p1_cnn_cm}
+\end{figure}
+
+\section{Phase 2: Raw‐Waveform Classification}
+\subsection{Convolutional Classifier (Convolution\_p2)}
+\subsubsection{Architecture}
+Same ResNet‐style blocks adapted for 4 800‐sample inputs (pool\_stride=7, smaller kernels).
+\subsubsection{Results}
+\begin{itemize}
+  \item \textbf{Test accuracy:} 0.8010
+  \item \textbf{Drummy (0):} precision 0.82, recall 0.82, F1 0.82 (support 350)
+  \item \textbf{Tight (1):} precision 0.78, recall 0.77, F1 0.77 (support 278)
+\end{itemize}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.6\textwidth]{../assets/phase2_cnn_confusion.png}
+  \caption{Raw‐Waveform CNN Confusion Matrix (Phase 2)}
+  \label{fig:p2_cnn_cm}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.6\textwidth]{../assets/conv_p2_train_val.png}
+  \caption{Raw‐Waveform CNN Train vs Val Matrix (Phase 2)}
+  \label{fig:p2_cnn_train_val}
+\end{figure}
+
+\subsection{Convolution + BiLSTM (ConvBiLSTM)}
+\subsubsection{Architecture}
+Features are extracted via two ResidualBlock layers then fed as a sequence to a 3-layer bidirectional LSTM (hidden = 512) and finally a dense classifier.
+\subsubsection{Results}
+\begin{itemize}
+  \item \textbf{Test accuracy:} 0.8392
+  \item \textbf{Drummy (0):} precision 0.85, recall 0.79, F1 0.82 (support 350)
+  \item \textbf{Tight (1):} precision 0.75, recall 0.83, F1 0.79 (support 278)
+\end{itemize}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.6\textwidth]{../assets/phase2_bilstm_confusion.png}
+  \caption{Conv + BiLSTM Confusion Matrix (Phase 2)}
+  \label{fig:p2_bilstm_cm}
+\end{figure}
+
+\section{Phase 2: Feature‐Based Classifiers}
+\subsection{PCA + Time‐Domain Features (Envelope + ZCR + RMS)}
+Concatenated 95\% PCA (241 dims) with envelope, ZCR and RMS (227 dims) for 468 total. Trained a 3-layer MLP (64 hidden):
+\begin{itemize}
+  \item \textbf{Test accuracy:} 0.7946
+  \item \textbf{Drummy (0):} precision 0.81, recall 0.82, F1 0.82 (support 350)
+  \item \textbf{Tight (1):} precision 0.77, recall 0.76, F1 0.77 (support 278)
+\end{itemize}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.6\textwidth]{../assets/phase2_pca_time_confusion.png}
+  \caption{PCA+Time MLP Confusion Matrix (Phase 2)}
+  \label{fig:p2_pca_time_cm}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.6\textwidth]{../assets/phase2_pca_time_train_val.png}
+  \caption{PCA+Time MLP Train Val (Phase 2)}
+  \label{fig:p2_pca_time_train_val}
+\end{figure}
+
+\subsection{MFCC‐Based MLP Phase 2}
+Extracted 40 MFCCs (n\_fft=1024, hop=512), trained a 3-layer MLP (64 hidden):
+\begin{itemize}
+  \item \textbf{Test accuracy:} 0.9013
+  \item \textbf{Drummy (0):} precision 0.90, recall 0.93, F1 0.91 (support 350)
+  \item \textbf{Tight (1):} precision 0.91, recall 0.86, F1 0.89 (support 278)
+\end{itemize}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.6\textwidth]{../assets/phase2_mfcc_confusion.png}
+  \caption{MFCC MLP Confusion Matrix (Phase 2)}
+  \label{fig:p2_mfcc_cm}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.6\textwidth]{../assets/phase2_mfcc_train_val.png}
+  \caption{MFCC MLP Train Val (Phase 2)}
+  \label{fig:p2_mfcc_train_val}
+\end{figure}
+
 
 \end{document}
