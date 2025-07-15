@@ -47,3 +47,6 @@ wavelet Transform,
 
 14,15 Mostly used spectral features are spectral centroid, -> 66% accuracy 
 16 spectral cen-troid magnitude cepstral coefficients 
+
+##outlier detection -> autoencoder, statistical energy
+## try clustering  remove bad data, label bad data

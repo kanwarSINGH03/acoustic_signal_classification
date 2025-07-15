@@ -366,7 +366,7 @@ class ConvBiLSTM(nn.Module):
         )
 
         # Bidirectional LSTM over the conv feature sequence
-        # input_size = number of channels output by conv = 4
+        # input_size = number of channels output by conv = 10
         self.lstm = nn.LSTM(
             input_size=10,
             hidden_size=hidden_dim,
@@ -379,17 +379,13 @@ class ConvBiLSTM(nn.Module):
         self.classifier = nn.Linear(hidden_dim * 2, output_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # x may come in as (batch, time) or (batch, 1, time)
         if x.dim() == 2:
-            x = x.unsqueeze(1)               # → (batch, 1, time)
-        # Convolutional feature maps → (batch, 4, seq_len)
+            x = x.unsqueeze(1) 
         features = self.conv(x)
-        # Prepare for LSTM: (batch, seq_len, 4)
+
         features = features.permute(0, 2, 1)
-        # LSTM over time
-        lstm_out, _ = self.lstm(features)   # → (batch, seq_len, hidden_dim*2)
-        # Take the last time step’s output
-        last_step = lstm_out[:, -1, :]      # → (batch, hidden_dim*2)
-        # Classify
-        logits = self.classifier(last_step) # → (batch, output_dim)
+        lstm_out, _ = self.lstm(features)
+        last_step = lstm_out[:, -1, :] 
+
+        logits = self.classifier(last_step)
         return logits
