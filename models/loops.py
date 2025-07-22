@@ -97,7 +97,7 @@ def train(
                 )
             )
 
-        torch.save(model, model_path)
+        torch.save(model.state_dict(), model_path)
     else:
         for e in range(epochs):
             model.train()
@@ -128,7 +128,7 @@ def train(
                 )
             )
 
-        torch.save(model, model_path)
+        torch.save(model.state_dict(), model_path)
     return history
 
 
@@ -137,7 +137,7 @@ from torch.utils.data import DataLoader
 
 
 def test(
-    model_path: str, test_loader: DataLoader, report: bool = False, score: bool = False, device: str = "mps"
+    model, model_path: str, test_loader: DataLoader, report: bool = False, score: bool = False, device: str = "mps"
 ):
     """
     Load a trained model, evaluate on test_loader, print accuracy,
@@ -146,8 +146,14 @@ def test(
     print("[INFO] Testing the model")
     device = torch.device(device)
 
-    # Load and prepare model
-    model = torch.load(model_path, weights_only=False)
+    # 1) Re-create your model architecture
+    model = model
+
+    # 2) Load the state_dict you saved
+    state = torch.load(model_path, map_location=device)
+    model.load_state_dict(state)
+
+    # 3) Move & eval
     model.to(device)
     model.eval()
 
