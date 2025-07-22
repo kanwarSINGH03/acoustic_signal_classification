@@ -15,6 +15,7 @@ def train(
     lr: float,
     weight_decay: float,
     optim: str,
+    device: str = "mps"
 ):
 
     criterion = nn.CrossEntropyLoss()
@@ -25,11 +26,7 @@ def train(
             model.parameters(), lr=lr, weight_decay=weight_decay
         )
 
-    device = torch.device(
-        "cuda"
-        if torch.cuda.is_available()
-        else "mps" if torch.backends.mps.is_available() else "cpu"
-    )
+    device = torch.device(device)
 
     model.to(device)
     history = {"train_loss": [], "train_acc": [], "val_loss": [], "val_acc": []}
@@ -140,14 +137,14 @@ from torch.utils.data import DataLoader
 
 
 def test(
-    model_path: str, test_loader: DataLoader, report: bool = False, score: bool = False
+    model_path: str, test_loader: DataLoader, report: bool = False, score: bool = False, device: str = "mps"
 ):
     """
     Load a trained model, evaluate on test_loader, print accuracy,
     and optionally display a confusion matrix / classification report.
     """
     print("[INFO] Testing the model")
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device(device)
 
     # Load and prepare model
     model = torch.load(model_path, weights_only=False)

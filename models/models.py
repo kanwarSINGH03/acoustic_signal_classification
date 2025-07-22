@@ -40,10 +40,10 @@ class Autoencoder_CNN(nn.Module):
     def __init__(self):
         super(Autoencoder_CNN, self).__init__()
         self.encoder = nn.Sequential(
-            nn.Conv1d(1, 6, kernel_size=3, padding=1),  # 1→6 channels
+            nn.Conv1d(1, 6, kernel_size=20, padding=0),  # 1→6 channels
             nn.ReLU(True),
             nn.MaxPool1d(12),  # downsample by 12
-            nn.Conv1d(6, 10, kernel_size=3, padding=1),  # 6→10 channels
+            nn.Conv1d(6, 10, kernel_size=20, padding=0),  # 6→10 channels
             nn.ReLU(True),
             nn.MaxPool1d(12),  # downsample by 12 again
         )
@@ -51,17 +51,24 @@ class Autoencoder_CNN(nn.Module):
         # Decoder: mirror of encoder with upsample and transposed-convs
         self.decoder = nn.Sequential(
             nn.Upsample(scale_factor=12, mode="nearest"),  # upsample by 12
-            nn.ConvTranspose1d(10, 6, kernel_size=3, padding=1),
+            nn.ConvTranspose1d(10, 6, kernel_size=20),
             nn.ReLU(True),
             nn.Upsample(
                 scale_factor=12, mode="nearest"
             ),  # upsample back to original length
-            nn.ConvTranspose1d(6, 1, kernel_size=3, padding=1),
+            nn.ConvTranspose1d(6, 1, kernel_size=20),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         z = self.encoder(x)
         x_hat = self.decoder(z)
+
+        # Match output to input size
+        if x_hat.size(-1) > x.size(-1):
+            x_hat = x_hat[:, :, :x.size(-1)]
+        elif x_hat.size(-1) < x.size(-1):
+            pad_len = x.size(-1) - x_hat.size(-1)
+            x_hat = F.pad(x_hat, (0, pad_len))  # pad last dimension
         return x_hat
 
     def encode(self, x: torch.Tensor) -> torch.Tensor:
@@ -389,3 +396,27 @@ class ConvBiLSTM(nn.Module):
 
         logits = self.classifier(last_step)
         return logits
+    
+
+
+class Convolution_Combined(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.block = nn.Sequential(
+            nn.Conv1d(1, 2, kernel_size=20, padding=(10 - 1) // 2),
+            nn.ReLU(inplace=True),
+            ResidualBlock(2, 5, pool_size=10, stride=2, res_net=True),
+            ResidualBlock(5, 8, pool_size=10, stride=2, res_net=True),
+            nn.AdaptiveAvgPool1d(20),
+            nn.Flatten(),
+            nn.Linear(160, 32),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.5),
+            nn.Linear(32, 2),
+        )
+
+    def forward(self, x):
+        # ensure channel dim
+        if x.dim() == 2:
+            x = x.unsqueeze(1)
+        return self.block(x)

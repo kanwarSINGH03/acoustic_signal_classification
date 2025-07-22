@@ -175,7 +175,7 @@ class Extract_Features(Dataset):
 
                 model = models.Autoencoder_CNN().to(device)
 
-                criterion = nn.criterionLoss()
+                criterion = nn.MSELoss()
                 optimizer = optim.SGD(
                     model.parameters(), lr=lr, weight_decay=weight_decay
                 )
@@ -185,8 +185,8 @@ class Extract_Features(Dataset):
                 X_norm = (X_np - X_np.min()) / (X_np.max() - X_np.min())
                 X_tensor = torch.from_numpy(X_norm)
 
-                train_dataset = TensorDataset(X_tensor[:3000], X_tensor[:3000])
-                test_dataset = TensorDataset(X_tensor[3000:], X_tensor[3000:])
+                train_dataset = TensorDataset(X_tensor[:7500], X_tensor[:7500])
+                test_dataset = TensorDataset(X_tensor[7500:], X_tensor[7500:])
 
                 train_loader = DataLoader(
                     train_dataset, batch_size=batch_size, shuffle=True
@@ -260,7 +260,7 @@ class Extract_Features(Dataset):
                     input_dim=input_dim, latent_dim=latent_dim
                 ).to(device)
 
-                criterion = nn.criterionLoss()
+                criterion = nn.MSELoss()
                 optimizer = optim.Adam(
                     model.parameters(), lr=lr, weight_decay=weight_decay
                 )
