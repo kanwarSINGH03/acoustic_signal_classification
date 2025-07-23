@@ -407,12 +407,12 @@ class Convolution_Combined(nn.Module):
             nn.ReLU(inplace=True),
             ResidualBlock(2, 5, pool_size=10, stride=2, res_net=True),
             ResidualBlock(5, 8, pool_size=10, stride=2, res_net=True),
-            nn.AdaptiveAvgPool1d(20),
+            nn.AdaptiveAvgPool1d(10),
             nn.Flatten(),
-            nn.Linear(160, 32),
+            nn.Linear(80, 16),
             nn.ReLU(inplace=True),
             nn.Dropout(0.5),
-            nn.Linear(32, 2),
+            nn.Linear(16, 2),
         )
 
     def forward(self, x):
