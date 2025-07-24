@@ -317,18 +317,21 @@ class Convolution_p2(nn.Module):
     def __init__(self):
         super().__init__()
         self.block = nn.Sequential(
-            nn.Conv1d(1, 2, kernel_size=10, padding=(10 - 1) // 2),
-            nn.ReLU(inplace=True),
+            nn.Conv1d(1, 3, kernel_size=20, padding=(10 - 1) // 2),
+            # nn.ReLU(inplace=True),
             ResidualBlock(
-                2, 3, pool_size=10, stride=2, res_net=True, pool_stride=7, k1=10, k2=10
+                3, 5, pool_size=10, stride=2, res_net=True, pool_stride=2, k1=10, k2=20
             ),
             ResidualBlock(
-                3, 4, pool_size=10, stride=2, res_net=True, pool_stride=7, k1=10, k2=10
+                5, 8, pool_size=10, stride=2, res_net=True, pool_stride=2, k1=10, k2=20
             ),
             nn.Flatten(),
-            nn.Linear(96, 25),
+            nn.Linear(2328, 512),
             nn.ReLU(inplace=True),
-            nn.Linear(25, 2),
+            nn.Linear(512, 64),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.6),
+            nn.Linear(64, 2),
         )
 
     def forward(self, x):
@@ -344,7 +347,7 @@ class ConvBiLSTM(nn.Module):
     then feeds sequence of feature vectors into a bidirectional LSTM,
     and finally classifies based on the last time step.
     """
-    def __init__(self, hidden_dim: int = 64, output_dim: int = 2, num_lstm_layers: int = 3):
+    def __init__(self, hidden_dim: int = 64, output_dim: int = 2, num_lstm_layers: int = 2):
         super().__init__()
         # 1D convolutional feature extractor
         self.conv = nn.Sequential(
@@ -357,8 +360,8 @@ class ConvBiLSTM(nn.Module):
                 stride=2,
                 res_net=True,
                 pool_stride=5,
-                k1=20,
-                k2=20
+                k1=10,
+                k2=10
             ),
             ResidualBlock(
                 in_channels=5,
@@ -367,8 +370,8 @@ class ConvBiLSTM(nn.Module):
                 stride=2,
                 res_net=True,
                 pool_stride=5,
-                k1=20,
-                k2=20
+                k1=10,
+                k2=10
             ),
         )
 
@@ -407,12 +410,11 @@ class Convolution_Combined(nn.Module):
             nn.ReLU(inplace=True),
             ResidualBlock(2, 5, pool_size=10, stride=2, res_net=True),
             ResidualBlock(5, 8, pool_size=10, stride=2, res_net=True),
-            nn.AdaptiveAvgPool1d(10),
             nn.Flatten(),
-            nn.Linear(80, 16),
+            nn.Linear(632, 64),
             nn.ReLU(inplace=True),
             nn.Dropout(0.5),
-            nn.Linear(16, 2),
+            nn.Linear(64, 2),
         )
 
     def forward(self, x):

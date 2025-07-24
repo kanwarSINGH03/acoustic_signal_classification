@@ -18,7 +18,7 @@ def train(
     device: str = "mps"
 ):
 
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
     if optim == "adam":
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     elif optim == "sgd":
