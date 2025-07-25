@@ -65,7 +65,7 @@ class Autoencoder_CNN(nn.Module):
 
         # Match output to input size
         if x_hat.size(-1) > x.size(-1):
-            x_hat = x_hat[:, :, :x.size(-1)]
+            x_hat = x_hat[:, :, : x.size(-1)]
         elif x_hat.size(-1) < x.size(-1):
             pad_len = x.size(-1) - x_hat.size(-1)
             x_hat = F.pad(x_hat, (0, pad_len))  # pad last dimension
@@ -256,7 +256,7 @@ class ResidualBlock(nn.Module):
             nn.Conv1d(
                 in_channels, out_channels, kernel_size=k1, padding=pad, stride=stride
             ),
-            nn.ReLU(inplace=True),
+            nn.Tanh(),
             nn.Conv1d(out_channels, out_channels, kernel_size=k2, padding=pad),
         )
         self.pool = (
@@ -296,8 +296,9 @@ class Convolution(nn.Module):
         super().__init__()
         self.block = nn.Sequential(
             nn.Conv1d(1, 2, kernel_size=20, padding=(10 - 1) // 2),
-            nn.ReLU(inplace=True),
+            nn.Tanh(),
             ResidualBlock(2, 5, pool_size=10, stride=2, res_net=True),
+            nn.Tanh(),
             ResidualBlock(5, 8, pool_size=10, stride=2, res_net=True),
             nn.Flatten(),
             nn.Linear(632, 64),
@@ -318,7 +319,7 @@ class Convolution_p2(nn.Module):
         super().__init__()
         self.block = nn.Sequential(
             nn.Conv1d(1, 3, kernel_size=20, padding=(10 - 1) // 2),
-            # nn.ReLU(inplace=True),
+            nn.Tanh(),
             ResidualBlock(
                 3, 5, pool_size=10, stride=2, res_net=True, pool_stride=2, k1=10, k2=20
             ),
@@ -340,6 +341,7 @@ class Convolution_p2(nn.Module):
             x = x.unsqueeze(1)
         return self.block(x)
 
+
 class ConvBiLSTM(nn.Module):
     """
     Combined 1D-CNN (with residual blocks) + BiLSTM model.
@@ -347,42 +349,31 @@ class ConvBiLSTM(nn.Module):
     then feeds sequence of feature vectors into a bidirectional LSTM,
     and finally classifies based on the last time step.
     """
-    def __init__(self, hidden_dim: int = 64, output_dim: int = 2, num_lstm_layers: int = 2):
+
+    def __init__(
+        self, hidden_dim: int = 64, output_dim: int = 2, num_lstm_layers: int = 2
+    ):
         super().__init__()
         # 1D convolutional feature extractor
         self.conv = nn.Sequential(
-            nn.Conv1d(1, 2, kernel_size=10, padding=(10 - 1) // 2),
-            nn.ReLU(inplace=True),
+            nn.Conv1d(1, 3, kernel_size=20, padding=(10 - 1) // 2),
+            nn.Tanh(),
             ResidualBlock(
-                in_channels=2,
-                out_channels=5,
-                pool_size=10,
-                stride=2,
-                res_net=True,
-                pool_stride=5,
-                k1=10,
-                k2=10
+                3, 5, pool_size=10, stride=2, res_net=True, pool_stride=2, k1=10, k2=20
             ),
             ResidualBlock(
-                in_channels=5,
-                out_channels=10,
-                pool_size=10,
-                stride=2,
-                res_net=True,
-                pool_stride=5,
-                k1=10,
-                k2=10
+                5, 8, pool_size=10, stride=2, res_net=True, pool_stride=2, k1=10, k2=20
             ),
         )
 
         # Bidirectional LSTM over the conv feature sequence
         # input_size = number of channels output by conv = 10
         self.lstm = nn.LSTM(
-            input_size=10,
+            input_size=8,
             hidden_size=hidden_dim,
             num_layers=num_lstm_layers,
             bidirectional=True,
-            batch_first=True
+            batch_first=True,
         )
 
         # Final classification head
@@ -390,16 +381,15 @@ class ConvBiLSTM(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if x.dim() == 2:
-            x = x.unsqueeze(1) 
+            x = x.unsqueeze(1)
         features = self.conv(x)
 
         features = features.permute(0, 2, 1)
         lstm_out, _ = self.lstm(features)
-        last_step = lstm_out[:, -1, :] 
+        last_step = lstm_out[:, -1, :]
 
         logits = self.classifier(last_step)
         return logits
-    
 
 
 class Convolution_Combined(nn.Module):
