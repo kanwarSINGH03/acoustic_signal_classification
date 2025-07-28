@@ -323,6 +323,7 @@ class Convolution_p2(nn.Module):
             ResidualBlock(
                 3, 5, pool_size=10, stride=2, res_net=True, pool_stride=2, k1=10, k2=20
             ),
+            nn.BatchNorm1d(5),
             ResidualBlock(
                 5, 8, pool_size=10, stride=2, res_net=True, pool_stride=2, k1=10, k2=20
             ),
