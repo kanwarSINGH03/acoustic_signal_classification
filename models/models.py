@@ -413,3 +413,67 @@ class Convolution_Combined(nn.Module):
         if x.dim() == 2:
             x = x.unsqueeze(1)
         return self.block(x)
+    
+import torchaudio
+
+class ConvPlusMFCC(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        # ——— Convolutional branch ———
+        self.conv_branch = nn.Sequential(
+            nn.Conv1d(1, 2, kernel_size=20, padding=(20 - 1) // 2),
+            nn.Tanh(),
+            ResidualBlock(
+                2, 4, pool_size=10, stride=2,
+                res_net=True, pool_stride=3,
+                k1=10, k2=20
+            ),
+            nn.BatchNorm1d(4),
+            ResidualBlock(
+                4, 6, pool_size=10, stride=2,
+                res_net=True, pool_stride=3,
+                k1=10, k2=20
+            ),
+            nn.Flatten(),  # → [B, 2328]
+        )
+
+        # ——— MFCC branch (yields 40×10 frames → 400 dims) ———
+        self.mfcc_transform = torchaudio.transforms.MFCC(
+            sample_rate=48000,
+            n_mfcc=40,
+            melkwargs={
+                "n_fft":      1024,
+                "hop_length": 512,
+                "n_mels":     40,
+            }
+        )
+        # After .flatten(1), this will be exactly 400 dims.
+
+        # ——— Classifier on concatenated features (2328 + 400 = 2728) ———
+        self.classifier = nn.Sequential(
+            nn.Linear(1168, 256),
+            nn.ReLU(inplace=True),
+            nn.Linear(256, 64),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.6),
+            nn.Linear(64, 2),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # x: [B, T] or [B, 1, T]
+        if x.dim() == 2:
+            x = x.unsqueeze(1)               # → [B, 1, T]
+
+        # conv branch
+        conv_feat = self.conv_branch(x)       # [B, 2328]
+
+        # mfcc branch
+        # MFCC expects [B, T], so squeeze channel
+        mfcc = self.mfcc_transform(x.squeeze(1))  # [B, 40, F]
+        mfcc_feat = mfcc.flatten(1)                # [B, 400]
+
+        # concat and classify
+        combined = torch.cat((conv_feat, mfcc_feat), dim=1)  # [B, 2728]
+        out = self.classifier(combined)                      # [B, 2]
+        return out
