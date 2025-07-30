@@ -339,7 +339,26 @@ I implemented a deeper 1D ResNet-style CNN directly on the raw 36 000‐sample w
   \label{fig:p1_resnet_cm}
 \end{figure}
 
-A lighter 1D‐CNN with two ResidualBlock layers (kernels=20, padding=6) and a smaller FC head:
+\subsection{Updated Raw‐Waveform Convolutional Classifier (Phase 1)}
+\paragraph{Structural Enhancements}
+The original ResNet‐style pipeline was refined with four targeted modifications, each contributing approximately +2\% accuracy:
+\begin{itemize}
+  \item \textbf{Kernel size expanded} from 10 to 20 samples → captures broader temporal context.
+  \item \textbf{Tanh activations} introduced after the initial Conv1d and each ResidualBlock → smoother nonlinearity and stable gradients.
+  \item \textbf{Dropout (0.5)} added in the fully connected head → combats overfitting on limited data.
+  \item \textbf{Label smoothing} with \(\epsilon=0.1\) in the loss function → softens targets and improves generalization.
+\end{itemize}
+\paragraph{Block Diagram}
+Conv1d(1→2, k=20, pad=9) → Tanh → ResidualBlock(2→5) → Tanh → ResidualBlock(5→8) → Flatten → Linear(632→64) → ReLU → Dropout → Linear(64→2).
+\paragraph{Performance}
+After 20 epochs on the 3309‑sample Phase 1 set:
+\begin{itemize}
+  \item Test accuracy: \textbf{0.9838}
+  \item Drummy (0): precision 1.00, recall 0.98, F1 0.99
+  \item Tight (1): precision 0.96, recall 0.99, F1 0.97
+\end{itemize}
+% Insert updated Phase 1 confusion matrix here.
+
 \begin{itemize}
   \item Conv1d(1→2) → ReLU → ResidualBlock(2→5) → ResidualBlock(5→8) → Flatten → FC(632→64) → ReLU → FC(64→2).
 \end{itemize}
@@ -396,6 +415,29 @@ Features are extracted via two ResidualBlock layers then fed as a sequence to a 
   \label{fig:p2_bilstm_cm}
 \end{figure}
 
+\subsection{Updated Raw‐Waveform Convolutional Classifier (Phase 2)}
+\paragraph{Structural Enhancements}
+Building on the Phase 1 refinements, we further adapted channel counts and normalization:
+\begin{itemize}
+  \item \textbf{Increased channels} in the first convolution: 1→3 → richer feature representation.
+  \item \textbf{Tanh activations} after every convolutional stage → consistent smoothing of feature maps.
+  \item \textbf{BatchNorm1d} applied to 5‑channel output of the first ResidualBlock → stabilized feature statistics.
+  \item \textbf{Adjusted pool\_stride=2} and wavelet kernel widths \(k1=10, k2=20\) in both ResidualBlocks → balanced downsampling.
+  \item \textbf{Dropout (0.6)} in the classifier head → stronger regularization on the larger Phase 2 dataset.
+  \item \textbf{Label smoothing} \(\epsilon=0.1\) carried over for consistent training behavior.
+\end{itemize}
+\paragraph{
+Conv1d(1→3, k=20) → Tanh → ResidualBlock(3→5,poolstride=2) → BatchNorm1d(5) → ResidualBlock(5→8,poolstride=2) → Flatten → Linear(2328→512) → ReLU → Linear(512→64) → ReLU → Dropout(0.6) → Linear(64→2).
+}
+\paragraph{Performance}
+After 20 epochs on the 8229‑sample Phase 2 set:
+\begin{itemize}
+  \item Test accuracy: \textbf{0.8818}
+  \item Drummy (0): precision 0.87, recall 0.92, F1 0.90
+  \item Tight (1): precision 0.89, recall 0.83, F1 0.86
+\end{itemize}
+% Insert updated Phase 2 confusion matrix here.
+
 \section{Phase 2: Feature‐Based Classifiers}
 \subsection{PCA + Time‐Domain Features (Envelope + ZCR + RMS)}
 Concatenated 95\% PCA (241 dims) with envelope, ZCR and RMS (227 dims) for 468 total. Trained a 3-layer MLP (64 hidden):
@@ -438,6 +480,29 @@ Extracted 40 MFCCs (n\_fft=1024, hop=512), trained a 3-layer MLP (64 hidden):
   \caption{MFCC MLP Train Val (Phase 2)}
   \label{fig:p2_mfcc_train_val}
 \end{figure}
+
+%% ---------------------------------------------
+\section{Phase 2: Dual‐Branch Conv + MFCC Classifier}
+%% ---------------------------------------------
+\subsection{Dual‐Branch Conv + MFCC Classifier (Phase 2)}
+\paragraph{Architectural Overview}
+Combines learned raw‐waveform features with handcrafted spectral MFCCs:
+\begin{itemize}
+  \item \textit{Convolutional branch:} Conv1d(1→2, k=20) → Tanh → ResidualBlock(2→4,pool\_stride=3) → BatchNorm1d(4) → ResidualBlock(4→6,pool\_stride=3) → Flatten ([B,2328]).
+  \item \textit{MFCC branch:} torchaudio.transforms.MFCC(40 coeffs) → Flatten ([B,400], parameters fixed).
+  \item \textit{Fusion and Classifier:} Concat → Linear(2728→256) → ReLU → Linear(256→64) → ReLU → Dropout(0.6) → Linear(64→2).
+  \item \textbf{Label smoothing} \(\epsilon=0.1\) in CE Loss.
+\end{itemize}
+\paragraph{Performance}
+After 20 epochs on Phase 2:
+\begin{itemize}
+  \item Test accuracy: \textbf{0.9264}
+  \item Drummy (0): precision 0.94, recall 0.93, F1 0.93
+  \item Tight (1): precision 0.91, recall 0.92, F1 0.92
+\end{itemize}
+% Insert Dual‐Branch confusion matrix here.
+
+
 
 
 \end{document}

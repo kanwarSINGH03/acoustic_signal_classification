@@ -50,3 +50,7 @@ wavelet Transform,
 
 ##outlier detection -> autoencoder, statistical energy
 ## try clustering  remove bad data, label bad data
+
+Batch Norm , Label Smoothening , Diff Architecture, Tanh,
+
+Conv + MFcc two branch concat but mfcc not trainable para
