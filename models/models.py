@@ -435,7 +435,7 @@ class ConvPlusMFCC(nn.Module):
                 res_net=True, pool_stride=3,
                 k1=10, k2=20
             ),
-            nn.Flatten(),  # → [B, 2328]
+            nn.Flatten(),  # → [B, 768]
         )
 
         # ——— MFCC branch (yields 40×10 frames → 400 dims) ———
@@ -450,7 +450,7 @@ class ConvPlusMFCC(nn.Module):
         )
         # After .flatten(1), this will be exactly 400 dims.
 
-        # ——— Classifier on concatenated features (2328 + 400 = 2728) ———
+        # ——— Classifier on concatenated features (768 + 400 = 1168) ———
         self.classifier = nn.Sequential(
             nn.Linear(1168, 256),
             nn.ReLU(inplace=True),
@@ -477,3 +477,4 @@ class ConvPlusMFCC(nn.Module):
         combined = torch.cat((conv_feat, mfcc_feat), dim=1)  # [B, 2728]
         out = self.classifier(combined)                      # [B, 2]
         return out
+    
