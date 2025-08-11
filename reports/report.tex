@@ -1,0 +1,138 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage[a4paper,width=150mm,left=5mm,right=5mm,top=5mm,bottom=15mm]{geometry}
+
+\title{
+{\includegraphics{../assets/usask.png}}   {\includegraphics[width=40mm]{../assets/uregina.png}}\\
+{Acoustic Signal Classification}\\
+{\large Final Report}\\
+}
+
+
+
+\author{Kanwar Pannu\\ Supervised by: Dr. Travis Wiens , Dr. Abdul Bais}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This report presents the findings of a project focused on classifying acoustic signals from mine roofs to assess their safety. The classification is based on audio recordings labeled as "Drummy" or "Tight", indicating the condition of the mine roof. The project utilized machine learning techniques to analyze and classify these audio signals, contributing to improved safety measures in mining operations. The results demonstrate the effectiveness of the developed models in accurately identifying roof conditions based on acoustic data.\\
+
+\end{abstract}
+
+\newpage
+\section{Understanding the Dataset}
+\subsection{Phase 1}
+Phase 1 consists of \textbf{3,309 recordings} (\textbf{2,212 drummy} sounds and \textbf{1,097 tight sounds}).
+Recordings in this phase have a duration of \textbf{0.75 seconds} and \textbf{36000 samples per recording}. The recordings are sampled at a rate of \textbf{48 kHz}. The dataset is not balanced, with number of drummy sounds twice that of tight sounds. This means whenever we receive a model accuracy of 66\% or less it is not better than random guessing.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{../assets/final_report_assets/phase1_waveform_overlay_0.png}
+    \caption{Waveform Overlay of Phase 1 Recordings Label 0(Drummy)}
+    \label{fig:phase1_waveform_overlay_0}
+\end{figure}
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{../assets/final_report_assets/phase1_waveform_overlay_1.png}
+    \caption{Waveform Overlay of Phase 1 Recordings Label 1(Tight)}
+    \label{fig:phase1_waveform_overlay_1}
+\end{figure}
+
+\newpage
+\subsection{Phase 2}
+Phase 2 consists of \textbf{9,923 recordings} (from which \textbf{1,483} recordings were \textbf{corrupted with NaN value}s, making it 8,440 recordings; further, there are \textbf{some mis-hits} as well that need to be cleaned later for feature extraction to be done on them). Finally, there are \textbf{3,856 drummy sounds and 3,124 tight sounds (including the mis-hits)}. \textbf{After removing mis-hits} by manually identifying them by looking at their waveforms, the final number of recordings is \textbf{8229}. Each recording has 4800 samples and a duration of \textbf{0.1 seconds}. The recordings are sampled at a rate of \textbf{48 kHz}. The dataset is more balanced than Phase 1, with number of drummy sounds slightly higher than tight sounds. This means whenever we receive a model accuracy of 54\% or less it is not better than random guessing.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{../assets/final_report_assets/phase2_waveform_overlay_0.png}
+    \caption{Waveform Overlay of Phase 2 Recordings Label 0(Drummy)}
+    \label{fig:phase2_waveform_overlay_0}
+\end{figure}
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{../assets/final_report_assets/phase2_waveform_overlay_1.png}
+    \caption{Waveform Overlay of Phase 2 Recordings Label 1(Tight)}
+    \label{fig:phase2_waveform_overlay_1}
+\end{figure}
+
+
+\newpage
+\section{PCA as Feature Extraction}
+PCA was applied and explained variance was used to score features. Comparison was done between using SVM and MLP as classifiers and found that MLP performed better than SVM almost always.
+\subsection{Phase 1}
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{../assets/final_report_assets/phase1_pca_explained_variance.png}
+    \caption{Phase 1 PCA Explained Variance}
+    \label{fig:phase1_pca_explained_variance}
+\end{figure}
+\textbf{Best Model and Feature Combination}\\
+\begin{verbatim}
+    90% explained variance , 2 Hidden Layers MLP, 256 Layer in Layer 1, 128 Layer in Layer 2, Dropout Rate = 0.2
+
+    Classification Report:
+                    precision    recall  f1-score   support
+
+    drummy (0)       0.88      0.91      0.89       443
+    tight (1)        0.80      0.74      0.77       219
+
+    accuracy                             0.85       662
+    macro avg        0.84      0.83      0.83       662
+    weighted avg     0.85      0.85      0.85       662
+
+    [RETRAIN] Accuracy (report=True): 0.8535
+\end{verbatim}
+\begin{figure}
+    \centering
+    \includegraphics[width=0.3\textwidth]{../assets/final_report_assets/phase1_pca_best_confusion.png}
+    \caption{Phase 1 PCA Best Confusion Matrix}
+    \label{fig:phase1_pca_best_confusion}
+\end{figure}
+\begin{figure}
+    \centering
+    \includegraphics[width=0.4\textwidth]{../assets/final_report_assets/best_model_mlp2_ev90_h256_P1_RETRAIN.png}
+    \caption{Phase 1 PCA Best Model Architecture}
+    \label{fig:phase1_pca_best_model_architecture}
+\end{figure}
+
+\newpage
+\subsection{Phase 2}
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{../assets/final_report_assets/phase2_pca_explained_variance.png}
+    \caption{Phase 2 PCA Explained Variance}
+    \label{fig:phase2_pca_explained_variance}
+\end{figure}
+\textbf{Best Model and Feature Combination}\\
+\begin{verbatim}
+    96% explained variance , 1 Hidden Layers MLP, 128 Layer in Layer 1, Dropout Rate = 0.2
+
+    Classification Report:
+                    precision  recall  f1-score   support
+
+    drummy (0)       0.78      0.86      0.82       926
+    tight (1)        0.81      0.71      0.75       762
+
+    accuracy                             0.79      1688
+    macro avg        0.80      0.79      0.79      1688
+    weighted avg     0.79      0.79      0.79      1688
+
+    [RETRAIN] Accuracy (report=True): 0.7927
+\end{verbatim}
+\begin{figure}
+    \centering
+    \includegraphics[width=0.3\textwidth]{../assets/final_report_assets/phase2_pca_best_confusion.png}
+    \caption{Phase 2 PCA Best Confusion Matrix}
+    \label{fig:phase2_pca_best_confusion}
+\end{figure}
+\begin{figure}
+    \centering
+    \includegraphics[width=0.4\textwidth]{../assets/final_report_assets/best_model_mlp1_ev96_h128_P2_RETRAIN.png}
+    \caption{Phase 2 PCA Best Model Architecture}
+    \label{fig:phase2_pca_best_model_architecture}
+\end{figure}
+
+\end{document}

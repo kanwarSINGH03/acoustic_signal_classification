@@ -1,0 +1,14 @@
+-> Talk about dataset
+-> Talk about comparison with previous models used
+-> Classical models
+-> Temporal feature extraction
+-> Deep Learning
+-> All model comparison
+-> Understanding repository and code
+-> Conclusion
+
+
+#Include figures for validation comparison, talk about why 90/10 in test and 80/10/10 in test and val split
+
+#ROC curves for model comparison
+#Talk about techniques for generalization(label smoothening, tanh)

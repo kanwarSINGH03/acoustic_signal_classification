@@ -466,7 +466,7 @@ class ConvPlusMFCC(nn.Module):
             x = x.unsqueeze(1)               # → [B, 1, T]
 
         # conv branch
-        conv_feat = self.conv_branch(x)       # [B, 2328]
+        conv_feat = self.conv_branch(x)       # [B, 768]
 
         # mfcc branch
         # MFCC expects [B, T], so squeeze channel
@@ -474,7 +474,7 @@ class ConvPlusMFCC(nn.Module):
         mfcc_feat = mfcc.flatten(1)                # [B, 400]
 
         # concat and classify
-        combined = torch.cat((conv_feat, mfcc_feat), dim=1)  # [B, 2728]
+        combined = torch.cat((conv_feat, mfcc_feat), dim=1)  # [B, 1168]
         out = self.classifier(combined)                      # [B, 2]
         return out
     

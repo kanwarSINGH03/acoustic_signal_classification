@@ -17,3 +17,4 @@ kaleido
 librosa
 seaborn
 pywavelets
+torchview
