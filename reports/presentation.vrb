@@ -1,0 +1,25 @@
+\frametitle{Phase 1 ResNet Model (Performance)}
+\begin{minipage}[t]{0.5\textwidth} % adjusted width
+\scriptsize
+\begin{verbatim}
+Classification Report:
+               precision    recall  f1-score   support
+
+drummy (0)       1.00      0.98      0.99       221
+tight (1)        0.96      0.99      0.97        88
+
+accuracy                             0.98       309
+macro avg        0.98      0.99      0.98       309
+weighted avg     0.98      0.98      0.98       309
+\end{verbatim}
+\end{minipage}%
+\vfill
+\begin{minipage}[t]{0.30\textwidth}
+\centering
+  \begin{figure}
+\includegraphics[width=\linewidth]{../assets/new_arch_conv_p1.png}
+\captionof{figure}{\scriptsize Phase 1 ResNet Confusion Matrix}
+\label{fig:phase1_resnet_confusion}
+  \end{figure}
+\end{minipage}
+

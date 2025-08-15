@@ -12,3 +12,14 @@
 
 #ROC curves for model comparison
 #Talk about techniques for generalization(label smoothening, tanh)
+
+
+#giems
+#imii
+#mosaic
+#nutrien
+#nserc
+
+
+#more evaluation metrics
+#auc and roc curves
