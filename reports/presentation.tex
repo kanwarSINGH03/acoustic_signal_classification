@@ -375,7 +375,32 @@ Supervisors: Dr. Travis Wiens\inst{1}, Dr. Abdul Bais\inst{2}}
     \end{itemize}
   \end{itemize}
 \end{frame}
-
+\begin{frame}{Label Smoothing}
+  \scriptsize
+  \begin{itemize}
+    \item \textbf{Problem:} Hard labels (0 or 1) make the model overconfident and reduce generalization.
+    \item \textbf{Idea:} Distribute a small amount of probability mass away from the true class.
+    \item In PyTorch (\texttt{CrossEntropyLoss} with \texttt{label\_smoothing=$\varepsilon$}):  
+    \[
+      q_i = (1 - \varepsilon) \cdot y_i + \frac{\varepsilon}{K}
+    \]
+    where:
+    \begin{itemize}
+      \scriptsize
+      \item $y_i$ = one-hot target (0 or 1),
+      \item $K$ = number of classes (here $K=2$),
+      \item $\varepsilon$ = smoothing parameter (e.g.\ 0.1).
+    \end{itemize}
+    \item For binary classification ($K=2$, $\varepsilon = 0.1$):  
+    \[
+      y = 1 \;\;\Rightarrow\;\; [0.95, 0.05]
+      \]
+    \[
+      y = 0 \;\;\Rightarrow\;\; [0.05, 0.95]
+    \]
+    \item \textbf{Effect:} Reduces overconfidence, encourages better generalization, and improves calibration.
+  \end{itemize}
+\end{frame}
 \begin{frame}{Phase 1 ResNet Model (Architecture)}
     \begin{figure}
       \centering
@@ -385,6 +410,8 @@ Supervisors: Dr. Travis Wiens\inst{1}, Dr. Abdul Bais\inst{2}}
     \end{figure}
 
 \end{frame}
+
+
 
 % Preamble (if not already present)
 % \usepackage{booktabs}
@@ -420,6 +447,17 @@ Supervisors: Dr. Travis Wiens\inst{1}, Dr. Abdul Bais\inst{2}}
   \label{fig:phase1_resnet_confusion}
   \end{figure}
 \end{minipage}
+\end{frame}
+
+% --- NEW SLIDE: Threshold analysis plots (after Phase 1 ResNet Performance) ---
+\begin{frame}{Phase 1 ResNet — Threshold Analysis (Scores)}
+  \centering
+  % Top: Scores by index for true = drummy (0)
+  \includegraphics[width=0.92\textwidth]{../assets/final_report_assets/p1_scores_by_index_drummy.png}\\[0.35em]
+  % Middle: Scores by index for true = tight (1)
+  \includegraphics[width=0.92\textwidth]{../assets/final_report_assets/p1_scores_by_index_tight.png}\\[0.35em]
+  % Bottom: Distribution of scores by true class
+  \includegraphics[width=0.4\textwidth]{../assets/final_report_assets/p1_score_distribution_hist.png}
 \end{frame}
 
 \begin{frame}{Phase 2 ResNet Model (Architecture)}
@@ -546,6 +584,17 @@ Supervisors: Dr. Travis Wiens\inst{1}, Dr. Abdul Bais\inst{2}}
 \end{minipage}
 \end{frame}
 
+% --- NEW SLIDE: MFCC + ResNet threshold analysis (scores) ---
+\begin{frame}{Phase 2 — MFCC + ResNet: Threshold Analysis (Scores)}
+  \centering
+  % Top: Scores by index for true = drummy (0)
+  \includegraphics[width=0.92\textwidth]{../assets/final_report_assets/p2_mfcc_resnet_scores_by_index_drummy.png}\\[0.35em]
+  % Middle: Scores by index for true = tight (1)
+  \includegraphics[width=0.92\textwidth]{../assets/final_report_assets/p2_mfcc_resnet_scores_by_index_tight.png}\\[0.35em]
+  % Bottom: Distribution of scores by true class
+  \includegraphics[width=0.40\textwidth]{../assets/final_report_assets/p2_mfcc_resnet_score_distribution_hist.png}
+\end{frame}
+
 \begin{frame}{Model Discussion}
   \scriptsize
 \begin{itemize}
@@ -594,10 +643,11 @@ Supervisors: Dr. Travis Wiens\inst{1}, Dr. Abdul Bais\inst{2}}
 
 \begin{frame}{Conclusion}
 \begin{itemize}
-    \item Multiple architectures were evaluated for Phase 2 classification, with \textbf{MFCC + ResNet} emerging as the top performer in terms of both accuracy and balanced recall.
-    \item Small architectural changes — such as \textbf{label smoothing} and \textbf{tanh after convolution layers} — provided measurable improvements of around \textbf{+2\% accuracy each}.
-    \item Results indicate that incorporating feature diversity (MFCC + CNN) and preserving negative activations can enhance the ability to discriminate between “drummy” and “tight” impacts.
-    \item Future work will aim to unify dataset handling and improve preprocessing to ensure consistently high-quality inputs.
+  \scriptsize
+    \item \textbf{PCA-based methods} in Phase 1 provided a good starting point, showing that linear feature extraction can capture some structure in the data. However, PCA could not fully model the \textbf{temporal and non-linear patterns} present in acoustic signals.  
+    \item Moving towards \textbf{deeper learning architectures} (ResNet, MFCC+CNN, MLP hybrids) demonstrated clear gains in accuracy and class balance, confirming that raw waveforms and spectrogram-like features benefit from hierarchical feature learning.  
+    \item Architectural refinements such as \textbf{tanh activations} and \textbf{label smoothing} helped reduce overconfidence and improved generalization, adding small but consistent boosts in performance.  
+    \item Overall, results show that while PCA is useful for dimensionality reduction, \textbf{end-to-end deep learning pipelines} are far more effective for real-world classification of mine roof impacts. This underscores the importance of non-linear feature extraction in safety-critical acoustic applications.  
 \end{itemize}
 \end{frame}
 
