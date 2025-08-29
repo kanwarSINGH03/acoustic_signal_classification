@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pywt
+import torchaudio
 from typing import Optional
 
 
@@ -414,7 +415,6 @@ class Convolution_Combined(nn.Module):
             x = x.unsqueeze(1)
         return self.block(x)
     
-import torchaudio
 
 class ConvPlusMFCC(nn.Module):
     def __init__(self):
@@ -477,7 +477,8 @@ class ConvPlusMFCC(nn.Module):
         combined = torch.cat((conv_feat, mfcc_feat), dim=1)  # [B, 1168]
         out = self.classifier(combined)                      # [B, 2]
         return out
-    
+
+
 class MFCC(nn.Module):
     def __init__(self, dropout_rate: float = 0.5):
         super().__init__()

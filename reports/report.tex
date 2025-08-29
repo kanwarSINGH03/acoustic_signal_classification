@@ -1,370 +1,679 @@
 \documentclass{article}
 \usepackage[utf8]{inputenc}
+\usepackage[a4paper,width=150mm,left=5mm,right=5mm,top=2mm,bottom=1.5mm]{geometry}
+\usepackage{hyperref}
 \usepackage{graphicx}
-\usepackage[a4paper,width=150mm,left=5mm,right=5mm,top=5mm,bottom=15mm]{geometry}
-\usepackage{booktabs}  % nice tables
-\usepackage{placeins}  % \FloatBarrier to stop float drift
-\usepackage{caption}   % consistent captions if needed
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,calc}
+\usepackage{booktabs}
+\usepackage{placeins}   % \FloatBarrier
+\usepackage{caption}    % consistent captions
+\usepackage{subcaption} % subfigures
+\usepackage{amsmath}
+\usepackage{amssymb}
 
 \title{
-{\includegraphics{../assets/usask.png}} \ {\includegraphics[width=40mm]{../assets/uregina.png}}\\
-{Acoustic Signal Classification}\\
+{\includegraphics[width=25mm]{../assets/usask.png}} \hspace{2mm}
+{\includegraphics[width=20mm]{../assets/uregina.png}} \hspace{2mm}
+{\includegraphics[width=40mm]{../assets/NSERC_FIP_RGB.png}} \hspace{2mm}
+{\includegraphics[width=10mm]{../assets/GIEMS_logo_colored.jpg}} \hspace{2mm}
+{\includegraphics[width=20mm]{../assets/imii.png}} \hspace{2mm}\\
+{\Large Automatic Scaling Bar: Phase 2 Acoustic Signal Classification}\\
 {\large Final Report}\\
 }
-
-\author{Kanwar Pannu\\ Supervised by: Dr. Travis Wiens , Dr. Abdul Bais}
+\author{Kanwar Pannu\\ Supervisors: Dr.\ Travis Wiens, Dr.\ Abdul Bais}
 
 \begin{document}
-
 \maketitle
 
 \begin{abstract}
-This report presents the findings of a project focused on classifying acoustic signals from mine roofs to assess their safety. The classification is based on audio recordings labeled as ``Drummy'' or ``Tight'', indicating the condition of the mine roof. The project utilized machine learning techniques to analyze and classify these audio signals, contributing to improved safety measures in mining operations. The results demonstrate the effectiveness of the developed models in accurately identifying roof conditions based on acoustic data.\\
+Miners traditionally strike the roof with a scaling bar and judge safety by the impact sound (\emph{``Drummy''} vs \emph{``Tight''}). This judgment is subjective and can be difficult in complex geometries. We present a two-phase project to automatically classify impact audio. Phase~1 used studio-microphone data and PCA+ML baselines; Phase~2 introduced a custom device mounted on the scaling bar with Bluetooth connectivity, and evaluated end-to-end waveform CNNs and MFCC-based deep models. Results show that deep models, especially MFCC+ResNet, markedly outperform classical baselines. The Phase~1 ResNet saturates near 98\% accuracy; Phase~2 MFCC+ResNet achieves 93\% with balanced class recall. We discuss design choices (tanh activations, label smoothing), dataset issues (mishits), and future directions (unified variable-length front-ends, automated mishit filtering, embedded deployment).
 \end{abstract}
 
-\newpage
-\section{Background and Project Overview}
-Evaluating whether an impact sounds tight or drummy is a subjective skill that requires training and experience. Challenging conditions (e.g., intersecting rooms, high roofs) can make this judgment difficult even for experts. This project records the sound of scaling-bar impacts and uses machine learning to classify them as either ``Tight'' or ``Drummy'', reducing subjectivity.
-\noindent\textbf{Phase 2 Device Functionality:}
+\section{Introduction and Project Overview}
+Scaling bars are steel or aluminum rods (2--3\,m) used to strike the mine roof before work begins. Workers listen for a \emph{Drummy} (loose) or \emph{Tight} (safe) sound. This process depends on experience and is error-prone in challenging conditions (intersecting rooms, high roofs). Our objective is to learn a mapping from impact audio to \{Drummy, Tight\} labels to reduce subjectivity.
+
+\paragraph{Phase 2 Device.}
+A custom device was designed and mounted on the scaling bar to:
 \begin{itemize}
-  \item Detect impacts and record audio.
-  \item Optional in-field labeling (drummy/tight).
-  \item Transmit audio via Bluetooth to the app.
-  \item Receive classifier results and display via RGB LED.
+  \item detect impacts and record audio,
+  \item allow optional in-field labeling,
+  \item transmit audio via Bluetooth to an app,
+  \item receive classifier outputs and present feedback via RGB LED.
 \end{itemize}
 
 \begin{figure}[h]
   \centering
-  \includegraphics[width=50mm]{../assets/phase2_device.png}
-  \caption{Phase 2 custom device mounted on a scaling bar.}
+  \includegraphics[width=55mm]{../assets/phase2_device.png}
+  \caption{Phase~2 custom device mounted on a scaling bar.}
   \label{fig:phase2_device}
 \end{figure}
 
 \FloatBarrier
-
 \newpage
-\section{Understanding the Dataset}
+\section{Datasets}
 \subsection{Phase 1}
-Phase 1 consists of \textbf{3,309 recordings} (\textbf{2,212 drummy} and \textbf{1,097 tight}). Each recording is \textbf{0.75 s} long (\textbf{36{,}000 samples}) at \textbf{48 kHz}. The class distribution is imbalanced (drummy $\approx$ 2x tight), so any accuracy \(\le\) \textbf{66\%} is not better than a majority guess.
+Phase~1 comprises \textbf{3{,}309} recordings (\textbf{2{,}212 Drummy}, \textbf{1{,}097 Tight}) recorded at Nutrien and Mosaic using studio microphones. Each clip is \textbf{0.75\,s} (\textbf{36,000 samples} at 48\,kHz). The dataset is imbalanced (2:1), so a majority guess baseline is \(\approx\)66\% accuracy.
 
 \begin{figure}[h]
-    \centering
-    \includegraphics[width=0.8\textwidth]{../assets/final_report_assets/phase1_waveform_overlay_0.png}
-    \caption{Waveform overlay of Phase 1 recordings — Label 0 (Drummy).}
-    \label{fig:phase1_waveform_overlay_0}
+  \centering
+  \includegraphics[width=0.75\textwidth]{../assets/final_report_assets/phase1_waveform_overlay_0.png}
+  \caption{Phase~1 waveform overlay—Drummy (label 0).}
+  \label{fig:phase1_waveform_overlay_0}
 \end{figure}
 \begin{figure}[h]
-    \centering
-    \includegraphics[width=0.8\textwidth]{../assets/final_report_assets/phase1_waveform_overlay_1.png}
-    \caption{Waveform overlay of Phase 1 recordings — Label 1 (Tight).}
-    \label{fig:phase1_waveform_overlay_1}
+  \centering
+  \includegraphics[width=0.75\textwidth]{../assets/final_report_assets/phase1_waveform_overlay_1.png}
+  \caption{Phase~1 waveform overlay—Tight (label 1).}
+  \label{fig:phase1_waveform_overlay_1}
 \end{figure}
 
 \FloatBarrier
-\newpage
 \subsection{Phase 2}
-Raw Phase 2 contains \textbf{9,923} recordings; \textbf{1,483} were \textbf{NaN-corrupted} ($\Rightarrow$ 8,440). In addition, \textbf{mishits} (non-impacts/invalid recordings) were identified and removed by waveform screening, yielding a final dataset of \textbf{8,229} recordings. Each has \textbf{4,800 samples} (\textbf{0.1 s} at \textbf{48 kHz}). Classes are more balanced; any accuracy \(\le\) \textbf{54\%} is not better than a majority guess.
+Raw Phase~2 collected \textbf{9{,}923} recordings; \textbf{1{,}483} were NaN-corrupted, leaving \textbf{8{,}440}. After removing \emph{mishits} (non-impacts/invalids) via waveform screening, the final dataset contains \textbf{8{,}229} clips. Each clip has \textbf{4,800 samples} (\textbf{0.1\,s} at 48\,kHz). Classes are approximately balanced; a majority baseline is \(\approx\)54\% accuracy.
 
 \begin{figure}[h]
-    \centering
-    \includegraphics[width=0.8\textwidth]{../assets/final_report_assets/phase2_waveform_overlay_0.png}
-    \caption{Waveform overlay of Phase 2 recordings — Label 0 (Drummy).}
-    \label{fig:phase2_waveform_overlay_0}
+  \centering
+  \includegraphics[width=0.75\textwidth]{../assets/final_report_assets/phase2_waveform_overlay_0.png}
+  \caption{Phase~2 waveform overlay—Drummy (label 0).}
+  \label{fig:phase2_waveform_overlay_0}
 \end{figure}
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=0.8\textwidth]{../assets/final_report_assets/phase2_waveform_overlay_1.png}
-    \caption{Waveform overlay of Phase 2 recordings — Label 1 (Tight).}
-    \label{fig:phase2_waveform_overlay_1}
-\end{figure}
-\newpage
-\subsection{Mishits}
-Mishits were identified by visual inspection of the waveform and spectrogram.
 \begin{figure}[h]
   \centering
-  % 2x2 grid without subcaption
-  \begin{minipage}{0.45\textwidth}\centering
-    \includegraphics[width=0.95\linewidth]{../assets/phase2_mishit_1.png}
-    \captionof{figure}{Phase 2 mishit (Tight).}
-  \end{minipage}\hfill
-  \begin{minipage}{0.45\textwidth}\centering
-    \includegraphics[width=0.95\linewidth]{../assets/phase2_mishit_0.png}
-    \captionof{figure}{Phase 2 mishit (Drummy).}
-  \end{minipage}
+  \includegraphics[width=0.75\textwidth]{../assets/final_report_assets/phase2_waveform_overlay_1.png}
+  \caption{Phase~2 waveform overlay—Tight (label 1).}
+  \label{fig:phase2_waveform_overlay_1}
+\end{figure}
+
+\FloatBarrier
+\subsection{Mishits}
+Mishits were identified via waveform/spectrogram inspection and removed prior to training. Representative examples for both labels:
+
+\begin{figure}[h]
+  \centering
+  \begin{subfigure}{0.40\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{../assets/phase2_mishit_1.png}
+    \caption{Mishit (Tight, label 1)}
+    \label{fig:phase2_mishit_1}
+  \end{subfigure}\hfill
+  \begin{subfigure}{0.40\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{../assets/phase2_mishit_0.png}
+    \caption{Mishit (Drummy, label 0)}
+    \label{fig:phase2_mishit_0}
+  \end{subfigure}
 
   \medskip
 
-  \begin{minipage}{0.45\textwidth}\centering
-    \includegraphics[width=0.95\linewidth]{../assets/phase2_mishit_1_1.png}
-    \captionof{figure}{Phase 2 mishit (Tight).}
-  \end{minipage}\hfill
-  \begin{minipage}{0.45\textwidth}\centering
-    \includegraphics[width=0.95\linewidth]{../assets/phase2_mishit_0_1.png}
-    \captionof{figure}{Phase 2 mishit (Drummy).}
-  \end{minipage}
-  \label{fig:phase2_mishits}
-\end{figure}
-
-\FloatBarrier
-
-\newpage
-\section{PCA as Feature Extraction}
-PCA was used for dimensionality reduction; explained variance guided feature count. We compared SVM and MLP; \textbf{MLP consistently outperformed SVM}. Split: \textbf{80\% train / 20\% test}.
-
-\subsection{Phase 1}
-\begin{figure}[h]
+  \begin{subfigure}{0.40\textwidth}
     \centering
-    \includegraphics[width=0.8\textwidth]{../assets/final_report_assets/phase1_pca_explained_variance.png}
-    \caption{Phase 1 — PCA explained variance vs model accuracy (multiple models).}
-    \label{fig:phase1_pca_explained_variance}
-\end{figure}
-
-\noindent\textbf{Best Model and Feature Combination:}\\
-\emph{90\% explained variance}, \emph{MLP with 2 hidden layers} (256, 128), \emph{dropout 0.2}.
-
-\begin{table}[h]
-\centering
-\caption{Phase 1 PCA — Best model classification report.}
-\begin{tabular}{@{}lccc r@{}}
-\toprule
-{} & precision & recall & f1-score & support \\
-\midrule
-drummy (0)   & 0.88 & 0.91 & 0.89 & 443 \\
-tight (1)    & 0.80 & 0.74 & 0.77 & 219 \\
-\midrule
-accuracy     & \multicolumn{3}{c}{0.85} & 662 \\
-macro avg    & 0.84 & 0.83 & 0.83 & 662 \\
-weighted avg & 0.85 & 0.85 & 0.85 & 662 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\begin{figure}
+    \includegraphics[width=\linewidth]{../assets/phase2_mishit_1_1.png}
+    \caption{Mishit (Tight, label 1)}
+    \label{fig:phase2_mishit_1_1}
+  \end{subfigure}\hfill
+  \begin{subfigure}{0.40\textwidth}
     \centering
-    \includegraphics[width=0.3\textwidth]{../assets/final_report_assets/phase1_pca_best_confusion.png}
-    \caption{Phase 1 PCA — Best model confusion matrix.}
-    \label{fig:phase1_pca_best_confusion}
-\end{figure}
-\begin{figure}
-    \centering
-    \includegraphics[width=0.4\textwidth]{../assets/final_report_assets/best_model_mlp2_ev90_h256_P1_RETRAIN.png}
-    \caption{Phase 1 PCA — Best MLP architecture.}
-    \label{fig:phase1_pca_best_model_architecture}
+    \includegraphics[width=\linewidth]{../assets/phase2_mishit_0_1.png}
+    \caption{Mishit (Drummy, label 0)}
+    \label{fig:phase2_mishit_0_1}
+  \end{subfigure}
+
+  \caption{Phase~2 mishit examples identified during cleaning.}
+  \label{fig:phase2_mishits_grid}
 \end{figure}
 
 \FloatBarrier
 \newpage
-\subsection{Phase 2}
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=0.8\textwidth]{../assets/final_report_assets/phase2_pca_explained_variance.png}
-    \caption{Phase 2 — PCA explained variance vs model accuracy (multiple models).}
-    \label{fig:phase2_pca_explained_variance}
-\end{figure}
+\section{PCA and Classification}
+Principal Component Analysis (PCA) was used for feature reduction with explained variance guiding feature count. SVM and MLP were compared using an \textbf{80/20} train/test split. \textbf{MLP consistently outperformed SVM.}
 
-\noindent\textbf{Best Model and Feature Combination:}\\
-\emph{96\% explained variance}, \emph{MLP with 1 hidden layer} (128), \emph{dropout 0.2}.
+\subsection{Phase 1 (PCA)}
+Best model retained \textbf{90\%} variance; MLP with hidden layers \((256,\,128)\) and dropout \(0.2\).
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.7\textwidth]{../assets/final_report_assets/phase1_pca_explained_variance.png}
+  \caption{Phase~1—PCA explained variance vs.\ accuracy (multiple models).}
+  \label{fig:phase1_pca_explained_variance}
+\end{figure}
 
 \begin{table}[h]
 \centering
-\caption{Phase 2 PCA — Best model classification report.}
-\begin{tabular}{@{}lccc r@{}}
+\caption{Phase~1 PCA—Best MLP classification report (test set, $n{=}662$).}
+\begin{tabular}{lccc}
 \toprule
-{} & precision & recall & f1-score & support \\
+Class & Precision & Recall & F1 \\
 \midrule
-drummy (0)   & 0.78 & 0.86 & 0.82 & 926 \\
-tight (1)    & 0.81 & 0.71 & 0.75 & 762 \\
+Drummy (0) & 0.88 & 0.91 & 0.89 \\
+Tight (1)  & 0.80 & 0.74 & 0.77 \\
 \midrule
-accuracy     & \multicolumn{3}{c}{0.79} & 1688 \\
-macro avg    & 0.80 & 0.79 & 0.79 & 1688 \\
-weighted avg & 0.79 & 0.79 & 0.79 & 1688 \\
+Accuracy   & \multicolumn{3}{c}{0.85} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \begin{figure}[h]
-    \centering
-    \includegraphics[width=0.3\textwidth]{../assets/final_report_assets/phase2_pca_best_confusion.png}
-    \caption{Phase 2 PCA — Best model confusion matrix.}
-    \label{fig:phase2_pca_best_confusion}
+  \centering
+  \includegraphics[width=0.5\textwidth]{../assets/final_report_assets/phase1_pca_best_confusion.png}
+  \caption{Phase~1 PCA—Best model confusion matrix.}
+  \label{fig:phase1_pca_confusion}
 \end{figure}
+
+% --- Added: Architecture diagram for Phase 1 PCA best MLP ---
 \begin{figure}[h]
-    \centering
-    \includegraphics[width=0.4\textwidth]{../assets/final_report_assets/best_model_mlp1_ev96_h128_P2_RETRAIN.png}
-    \caption{Phase 2 PCA — Best MLP architecture.}
-    \label{fig:phase2_pca_best_model_architecture}
+  \centering
+  \includegraphics[width=0.3\textwidth]{../assets/final_report_assets/best_model_mlp2_ev90_h256_P1_RETRAIN.png}
+  \caption{Phase~1 PCA—Best MLP architecture (90\% variance, 256--128, dropout 0.2).}
+  \label{fig:phase1_pca_best_model_architecture_article}
 \end{figure}
 
 \FloatBarrier
 \newpage
-\section{Deep Learning Models and Generalization Techniques}
-PCA+MLP provided a strong baseline but cannot exploit the temporal structure of impacts. We therefore explored end-to-end CNNs and MFCC-based hybrids. Split: \textbf{90\% train / 10\% test}.
+\subsection{Phase 2 (PCA)}
+Best model retained \textbf{96\%} variance; single-hidden-layer MLP \((128)\), dropout \(0.2\).
 
-\noindent\textbf{Generalization:}
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.7\textwidth]{../assets/final_report_assets/phase2_pca_explained_variance.png}
+  \caption{Phase~2—PCA explained variance vs.\ accuracy (multiple models).}
+  \label{fig:phase2_pca_explained_variance}
+\end{figure}
+
+\begin{table}[h]
+\centering
+\caption{Phase~2 PCA—Best MLP classification report (test set, $n{=}1688$).}
+\begin{tabular}{lccc}
+\toprule
+Class & Precision & Recall & F1 \\
+\midrule
+Drummy (0) & 0.78 & 0.86 & 0.82 \\
+Tight (1)  & 0.81 & 0.71 & 0.75 \\
+\midrule
+Accuracy   & \multicolumn{3}{c}{0.79} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.5\textwidth]{../assets/final_report_assets/phase2_pca_best_confusion.png}
+  \caption{Phase~2 PCA—Best model confusion matrix.}
+  \label{fig:phase2_pca_confusion}
+\end{figure}
+
+% --- Added: Architecture diagram for Phase 2 PCA best MLP ---
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.45\textwidth]{../assets/final_report_assets/best_model_mlp1_ev96_h128_P2_RETRAIN.png}
+  \caption{Phase~2 PCA—Best MLP architecture (96\% variance, 128, dropout 0.2).}
+  \label{fig:phase2_pca_best_model_architecture_article}
+\end{figure}
+
+\FloatBarrier
+\newpage
+\section{Deep Learning and Generalization Techniques}
+PCA features are global and do not capture transient temporal dynamics. We therefore tested end-to-end CNNs with skip connections i.e. custom ResNets on raw waveforms and hybrids using MFCCs. Unless noted, the split is \textbf{90/10} (train/test) since we do not have much data to perform a smaller train split.
+Train/Val routine can be viewed in \textbf{/evaluation/report\_experiments.ipynb}.
+Generalization techniques included:
 \begin{itemize}
-  \item \textbf{Tanh} after convolutional stages: smoother feature maps and polarity preservation.
-  \item \textbf{BatchNorm1d} on early residual outputs: stabilized feature statistics.
-  \item \textbf{Dropout 0.6} in classifier heads: stronger regularization.
-  \item \textbf{Label smoothing} $\epsilon=0.1$: mitigated overconfidence.
+  \item \textbf{tanh} after convolutional stages,
+  \item \textbf{BatchNorm1d} in between the two Residual Blocks in Phase~2 ResNet,
+  \item \textbf{Dropout} \(=0.6\) in classifier heads,
+  \item \textbf{Label smoothing} \(\epsilon=0.1\).
 \end{itemize}
 
-\newpage
-\subsection{Phase 1 — ResNet (End-to-End)}
-\noindent\textbf{Hyperparameters:} Epochs \(=20\), Batch size \(=32\), LR \(=10^{-3}\), Dropout \(=0.6\).
+\subsection{Label Smoothing in Binary Classification}
+Label smoothing replaces hard one-hot targets with softened targets to reduce overconfidence and improve generalization. For $K$ classes and smoothing parameter $\varepsilon\in[0,1)$, the smoothed target for class $i$ is
+\begin{equation}
+\label{eq:ls-general}
+q_i \;=\; (1-\varepsilon)\,y_i \;+\; \frac{\varepsilon}{K},
+\end{equation}
+where $y_i\in\{0,1\}$ is the one-hot target.
 
+\paragraph{Binary case ($K{=}2$).}
+Let the positive class be indexed as $1$ and let $p\in(0,1)$ be the model's predicted probability for that class. With label smoothing,
+\[
+y_{\text{smooth}} \;=\; (1-\varepsilon)\cdot y \;+\; \frac{\varepsilon}{2},
+\]
+so the target vector becomes
+\[
+y=1 \;\Rightarrow\; [\,1{-}\varepsilon,\;\varepsilon\,], 
+\qquad
+y=0 \;\Rightarrow\; [\,\varepsilon,\;1{-}\varepsilon\,].
+\]
+
+\paragraph{Label smoothing with CE Loss.}
+\textbf{Cross-entropy (CE)} for a $K$-class classifier with predicted probabilities $\mathbf{p}$ and one-hot target $\mathbf{y}$ is
+\[
+\mathcal{L}_{\text{CE}}(\mathbf{p},\mathbf{y}) \;=\; -\sum_{k=1}^{K} y_k \,\ln p_k .
+\]
+With \textbf{label smoothing} ($\varepsilon$), the target becomes
+\[
+\mathbf{q} \;=\; (1-\varepsilon)\,\mathbf{y} \;+\; \frac{\varepsilon}{K}\,\mathbf{1},
+\]
+and the loss is
+\[
+\mathcal{L}_{\text{CE+LS}}(\mathbf{p},\mathbf{q}) \;=\; -\sum_{k=1}^{K} q_k \,\ln p_k .
+\]
+For \textbf{binary} classification ($K{=}2$) with $y{=}1$ and $\varepsilon{=}0.1$,
+\[
+\mathbf{q} \;=\; [\,0.05,\;0.95\,], \quad\text{i.e.,}\quad q_0=\tfrac{\varepsilon}{2}=0.05,\; q_1=1-\tfrac{\varepsilon}{2}=0.95.
+\]
+
+\smallskip
+\noindent\textbf{Numeric examples (natural log):}
+\begin{itemize}
+  \item \emph{Correct, confident:} $\mathbf{p}=[0.10,\,0.90],\; y{=}1$
+  \[
+  \mathcal{L}_{\text{CE}}=-\ln(0.90)=\mathbf{0.1054},\qquad
+  \mathcal{L}_{\text{CE+LS}}= -\big(0.05\ln 0.10 + 0.95\ln 0.90\big)=\mathbf{0.2152}.
+  \]
+  \item \emph{Correct, unsure:} $\mathbf{p}=[0.40,\,0.60],\; y{=}1$
+  \[
+  \mathcal{L}_{\text{CE}}=-\ln(0.60)=\mathbf{0.5108},\qquad
+  \mathcal{L}_{\text{CE+LS}}= -\big(0.05\ln 0.40 + 0.95\ln 0.60\big)=\mathbf{0.5350}.
+  \]
+  \item \emph{Wrong, overconfident:} $\mathbf{p}=[0.90,\,0.10],\; y{=}1$
+  \[
+  \mathcal{L}_{\text{CE}}=-\ln(0.10)=\mathbf{2.3026},\qquad
+  \mathcal{L}_{\text{CE+LS}}= -\big(0.05\ln 0.90 + 0.95\ln 0.10\big)=\mathbf{2.1927}.
+  \]
+\end{itemize}
+
+\noindent\textbf{Takeaway.} Label smoothing slightly \emph{increases} loss for very confident correct predictions (discourages overconfidence), barely changes moderately confident ones, and \emph{reduces} the penalty for overconfident mistakes. This calibrates probabilities and improves generalization.
+
+\FloatBarrier
+\newpage
+
+\subsection{Use of \texttt{tanh} Activations in Convolutional Layers}
+While ReLU is the common default in deep CNNs, for oscillatory audio signals (waveforms) it discards all negative values. This can be problematic in tasks such as acoustic classification, where both positive and negative waveform amplitudes carry important information about phase and resonance. Using \texttt{tanh} instead preserves the sign of activations, while still introducing nonlinearity and bounding outputs.
+
+\paragraph{Definition.}
+The $\tanh$ activation is
+\[
+\tanh(x) \;=\; \frac{e^x - e^{-x}}{e^x + e^{-x}},
+\]
+with range $(-1,1)$. It is symmetric around zero and saturates for large $|x|$.
+
+\paragraph{Why \texttt{tanh} helps.}
+\begin{itemize}
+  \item \textbf{Preserves polarity:} Positive and negative amplitudes are both kept, unlike ReLU which clamps all negatives to $0$.
+  \item \textbf{Better fit for waveforms:} Acoustic signals are naturally centered around zero; forcing non-negative activations removes half the information.
+  \item \textbf{Smoothing effect:} The saturation in $(-1,1)$ prevents extreme outliers from dominating the representation.
+\end{itemize}
+
+\paragraph{Numeric illustration.}
+Consider three sample convolution outputs:
+\[
+x = [-2.0,\;-0.5,\;0.5,\;2.0].
+\]
+
+\begin{itemize}
+  \item With ReLU:
+  \[
+  f(x) = [0,\;0,\;0.5,\;2.0],
+  \]
+  negative values vanish entirely.
+  \item With tanh:
+  \[
+  f(x) = [-0.964,\;-0.462,\;0.462,\;0.964],
+  \]
+  negative amplitudes are retained and mapped symmetrically.
+\end{itemize}
+
+\paragraph{Effect in our models.}
+By preserving sign information, \texttt{tanh} activations allowed the CNN layers to exploit both compression (positive) and rarefaction (negative) parts of the waveform. In practice (Phase~2 experiments), inserting \texttt{tanh} after convolutional layers improved calibration and added roughly $+2\%$ accuracy relative to ReLU-based baselines.
+
+\subsection{Binary classification with two output neurons: test-time prediction and training-time loss}
+
+\paragraph{Setup.}
+The model ends with two outputs (logits) for each input, one per class:
+\[
+\mathrm{logits} = [z_0,\, z_1],\qquad z_i\in\mathbb{R}.
+\]
+These are unnormalized scores (not probabilities).
+
+\paragraph{Training-time loss (CrossEntropyLoss).}
+With target \(y\in\{0,1\}\), \texttt{CrossEntropyLoss} computes the negative log-likelihood of the true class. Writing softmax explicitly,
+\[
+p_i=\frac{e^{z_i}}{e^{z_0}+e^{z_1}},\qquad
+\mathcal{L}=-\log p_y.
+\]
+For numerical stability, PyTorch uses the log-sum-exp identity (without explicitly forming softmax):
+\[
+\boxed{\;\mathcal{L} \;=\; -\,z_y \;+\; \log\!\big(e^{z_0}+e^{z_1}\big)\;}
+\]
+
+\paragraph{Worked numerical examples (training).}
+\textbf{Example A (confident and correct).} Let \([z_0,z_1]=[2.1,-1.3]\) and \(y=0\).
+\[
+\begin{aligned}
+e^{z_0}&=8.1662, \quad e^{z_1}=0.2725,\\
+e^{z_0}+e^{z_1}&=8.4387,\\
+p_0&=\tfrac{8.1662}{8.4387}=0.9677,\quad p_1=0.0323,\\
+\mathcal{L}&=-\log(0.9677)=0.0328.
+\end{aligned}
+\]
+Stable form:
+\[
+\mathcal{L}=-2.1+\log(8.4387)=0.0328.
+\]
+
+\noindent
+\textbf{Example B (confident and wrong).} Same logits but \(y=1\).
+\[
+p_1=0.0323,\quad \mathcal{L}=-\log(0.0323)=3.4328.
+\]
+
+\noindent
+\textbf{Example C (uninformative).} \([z_0,z_1]=[0,0]\). Then
+\[
+p_0=p_1=\tfrac{1}{2},\quad \mathcal{L}=-\log\tfrac{1}{2}=\log 2=0.6931.
+\]
+
+\noindent
+\textbf{Example D (mild margin).} \([z_0,z_1]=[-0.2,0.2]\).
+\[
+p_0=0.4013,\; p_1=0.5987,\;
+\mathcal{L}(y{=}0)=0.9130,\;\mathcal{L}(y{=}1)=0.5130.
+\]
+
+\paragraph{Test-time prediction.}
+At inference, PyTorch predicts the class index with the largest logit:
+\[
+\hat{y}=\arg\max\{z_0, z_1\}.
+\]
+This is equivalent to taking \(\arg\max\) over softmax probabilities, because softmax preserves ordering.
+
+\paragraph{Worked numerical examples (test).}
+\textbf{Example A (clear margin).} \([z_0,z_1]=[2.1,-1.3]\).
+\[
+\hat{y}=\arg\max\{2.1,-1.3\}=0.
+\]
+Probabilities: \(p_0=0.9677,\; p_1=0.0323\), same decision.
+
+\noindent
+\textbf{Example B (ambiguous case).} \([z_0,z_1]=[0.4,\,0.41]\).
+\[
+\hat{y}=\arg\max\{0.4,\,0.41\}=1.
+\]
+Probabilities: \(p_0=0.4975,\; p_1=0.5025\). Prediction: \(\hat{y}=1\).
+
+\noindent
+\textbf{Example C (tie).} \([z_0,z_1]=[0,0]\).
+\[
+p_0=p_1=0.5,\qquad \arg\max\{0,0\}=0 \text{ (PyTorch picks the first index in a tie).}
+\]
+
+
+
+
+\FloatBarrier
+\newpage
+\subsection{Phase 1—ResNet (End-to-End)}
+\textbf{Hyperparameters:} 20 epochs, batch 32, LR \(10^{-3}\), dropout 0.6.  
+\textbf{Accuracy:} \textbf{0.98}.
 \begin{table}[h]
 \centering
-\caption{Phase 1 ResNet — Classification report.}
-\begin{tabular}{@{}lccc r@{}}
+\caption{Phase~1 ResNet—Classification report (test set, $n{=}309$).}
+\begin{tabular}{lccc}
 \toprule
-{} & precision & recall & f1-score & support \\
+Class & Precision & Recall & F1 \\
 \midrule
-drummy (0)   & 1.00 & 0.98 & 0.99 & 221 \\
-tight (1)    & 0.96 & 0.99 & 0.97 & 88 \\
+Drummy (0) & 1.00 & 0.98 & 0.99 \\
+Tight (1)  & 0.96 & 0.99 & 0.97 \\
 \midrule
-accuracy     & \multicolumn{3}{c}{0.98} & 309 \\
-macro avg    & 0.98 & 0.99 & 0.98 & 309 \\
-weighted avg & 0.98 & 0.98 & 0.98 & 309 \\
+Accuracy   & \multicolumn{3}{c}{0.98} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
+% --- Confusion matrix (already requested) ---
 \begin{figure}[h]
   \centering
-  \includegraphics[width=0.15\textwidth]{../assets/final_report_assets/conv_p1_model_arch.png}
-  \caption{Phase 1 CNN (ResNet-style) model architecture.}
-  \label{fig:phase1_cnn_model_architecture}
-\end{figure}
-\begin{figure}[h]
-  \centering
-  \includegraphics[width=30mm]{../assets/new_arch_conv_p1.png}
-  \caption{Phase 1 ResNet — Confusion matrix.}
+  \includegraphics[width=0.7\textwidth]{../assets/new_arch_conv_p1.png}
+  \caption{Phase~1 ResNet—Confusion matrix.}
   \label{fig:phase1_resnet_confusion}
 \end{figure}
+\paragraph{Discussion.}
+The confusion matrix in Figure~\ref{fig:phase1_resnet_confusion} confirms that the Phase~1 ResNet achieves a very well balanced classification performance, despite the dataset containing a natural class skew (roughly 66\% Drummy vs.\ 34\% Tight). A trivial baseline that always predicted the majority class (Drummy) would reach only about \(0.66\) accuracy. In contrast, the ResNet attains \textbf{0.98 accuracy}, which is close to the practical ceiling on this dataset.
+
+Looking at the per-class metrics, Drummy samples (class 0) achieve perfect precision (1.00) and very high recall (0.98), indicating that almost no Tight examples are incorrectly labeled as Drummy. Conversely, Tight samples (class 1) show slightly lower precision (0.96) but nearly perfect recall (0.99), meaning the model very rarely misses a Tight roof. The corresponding F1 scores of 0.99 and 0.97 reflect this balance.
+
+Overall, the model demonstrates strong generalization and fairness across both classes, not simply exploiting the class imbalance. The confusion matrix highlights that both error types (false Drummy and false Tight) are kept minimal and symmetric, which is particularly important for safety applications where overlooking a potentially hazardous “Drummy” roof could have severe consequences.
+
+% --- Architecture diagram (added) ---
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.3\textwidth]{../assets/final_report_assets/conv_p1_model_arch.png}
+  \caption{Phase~1 ResNet—Model architecture.}
+  \label{fig:phase1_resnet_architecture}
+\end{figure}
 
 
+
+\FloatBarrier
+\subsubsection*{Threshold and Score Analysis (Phase 1)}
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.9\textwidth]{../assets/final_report_assets/p1_scores_by_index_drummy.png}
+  \includegraphics[width=0.9\textwidth]{../assets/final_report_assets/p1_scores_by_index_tight.png}
+  \caption{Phase~1 ResNet—Prediction scores by sample index (top: Drummy, bottom: Tight).}
+  \label{fig:p1_scores_by_index}
+\end{figure}
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.45\textwidth]{../assets/final_report_assets/p1_score_distribution_hist.png}
+  \caption{Phase~1 ResNet—Distribution of predicted scores by true class.}
+  \label{fig:p1_score_distribution}
+\end{figure}
+
+\paragraph{Thresholding and score separation.}
+Figures~\ref{fig:p1_scores_by_index}--\ref{fig:p1_score_distribution} demonstrate that the model’s outputs are strongly separated across classes. For Drummy samples (class~0), the vast majority of predicted probabilities for class~1 fall well below \(0.2\), while for Tight samples (class~1) the scores cluster above \(0.8\). Only a very small number of predictions occur near the decision threshold of \(0.5\), which correspond to the few misclassifications marked in red. 
+
+The histogram in Figure~\ref{fig:p1_score_distribution} further confirms this bimodal distribution: the Drummy class concentrates tightly near zero, and the Tight class clusters near one, with very little overlap. This indicates that the model is not only accurate but also \emph{confident} in its decisions. Importantly, such clear boundary separation implies robustness to threshold shifts—small changes to the threshold would not substantially alter the classification outcomes. The low number of boundary cases shows that the decision surface learned by the Phase~1 ResNet is well aligned with the underlying data distribution.
+
+\FloatBarrier
 \newpage
-\subsection{Phase 2 — ResNet (End-to-End)}
-\noindent\textbf{Hyperparameters:} Epochs \(=20\), Batch size \(=90\), LR \(=10^{-3}\), Dropout \(=0.6\), Weight decay \(=10^{-3}\).
+\subsection{Phase 2—Waveform ResNet}
+\textbf{Accuracy:} \textbf{0.88}. \quad (\textit{Epochs 20, batch 90, LR $10^{-3}$, dropout 0.6, weight decay $10^{-3}$})
 
 \begin{table}[h]
 \centering
-\caption{Phase 2 ResNet — Classification report.}
-\begin{tabular}{@{}lccc r@{}}
+\caption{Phase~2 Waveform ResNet—Classification report (test set, $n{=}829$).}
+\begin{tabular}{lccc}
 \toprule
-{} & precision & recall & f1-score & support \\
+Class & Precision & Recall & F1 \\
 \midrule
-drummy (0)   & 0.87 & 0.92 & 0.90 & 466 \\
-tight (1)    & 0.89 & 0.83 & 0.86 & 363 \\
+Drummy (0) & 0.87 & 0.92 & 0.90 \\
+Tight (1)  & 0.89 & 0.83 & 0.86 \\
 \midrule
-accuracy     & \multicolumn{3}{c}{0.88} & 829 \\
-macro avg    & 0.88 & 0.88 & 0.88 & 829 \\
-weighted avg & 0.88 & 0.88 & 0.88 & 829 \\
+Accuracy   & \multicolumn{3}{c}{0.88} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
+% --- Confusion matrix ---
 \begin{figure}[h]
   \centering
-  \includegraphics[width=0.15\textwidth]{../assets/final_report_assets/conv_p2_model_arch.png}
-  \caption{Phase 2 CNN (ResNet-style) model architecture.}
-  \label{fig:phase2_cnn_model_architecture}
-\end{figure}
-\begin{figure}[h]
-  \centering
-  \includegraphics[width=25mm]{../assets/phase2_resnet_confusion.png}
-  \caption{Phase 2 ResNet — Confusion matrix.}
-  \label{fig:phase2_resnet_confusion}
+  \includegraphics[width=0.7\textwidth]{../assets/phase2_resnet_confusion.png}
+  \caption{Phase~2 Waveform ResNet—Confusion matrix.}
+  \label{fig:phase2_resnet_confusion_article}
 \end{figure}
 
-\newpage
-\subsection{Phase 2 — MFCC + MLP}
-\noindent\textbf{MFCC config:} \(n\_mfcc=40\), \(n\_fft=1024\), hop\_length \(=512\), \(n\_mels=40\). Input waveform shape \(\texttt{[1, 4800]}\).
+\paragraph{Discussion.}
+The Phase~2 Waveform ResNet reaches an accuracy of \textbf{0.88}, which is notably lower than the Phase~1 result (0.98). This drop reflects the increased difficulty of Phase~2: the input signals are much shorter, which reduces the amount of temporal context the model can learn from. Although the model is an end-to-end ResNet and therefore has the capacity to extract raw waveform features directly, the results suggest that it does not fully capture the discriminative patterns of the Tight class.
+
+The confusion matrix in Figure~\ref{fig:phase2_resnet_confusion_article} highlights this imbalance. While Drummy samples are identified reliably (recall = 0.92), the model misclassifies a substantial portion of Tight roofs (recall = 0.83), often labeling them as Drummy. This indicates that the model tends to favor the majority class features (Drummy) while struggling to learn the tighter spectral or temporal signatures of Tight roofs. Precision for Tight is slightly better (0.89), but the overall F1 of 0.86 remains weaker than what might be expected from a balanced classifier.
+
+In practice, this means the Phase~2 ResNet is more cautious about calling a roof Tight, preferring instead to err on the side of Drummy. While this reduces the risk of overlooking a hazardous roof, it also undermines the reliability of recognizing genuinely safe areas. Future iterations of the model may need stronger feature engineering or hybrid architectures (e.g., combining waveform and spectral representations) to improve recall on the Tight class and reduce the overall misclassification rate.
+
+% --- Architecture diagram ---
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.3\textwidth]{../assets/final_report_assets/conv_p2_model_arch.png}
+  \caption{Phase~2 Waveform ResNet—Model architecture.}
+  \label{fig:phase2_resnet_architecture}
+\end{figure}
+
+
+
+\FloatBarrier
+\subsection{Phase 2—MFCC+MLP}
+\textbf{MFCC config:} $n_{\text{mfcc}}{=}40$, $n_{\text{fft}}{=}1024$, hop $=512$, $n_{\text{mels}}{=}40$; input $[1, 4800]$.  
+\textbf{Accuracy:} \textbf{0.90}.
 
 \begin{table}[h]
 \centering
-\caption{Phase 2 MFCC + MLP — Classification report.}
-\begin{tabular}{@{}lccc r@{}}
+\caption{Phase~2 MFCC+MLP—Classification report (test set, $n{=}829$).}
+\begin{tabular}{lccc}
 \toprule
-{} & precision & recall & f1-score & support \\
+Class & Precision & Recall & F1 \\
 \midrule
-drummy (0)   & 0.91 & 0.90 & 0.91 & 466 \\
-tight (1)    & 0.88 & 0.89 & 0.88 & 363 \\
+Drummy (0) & 0.88 & 0.93 & 0.90 \\
+Tight (1)  & 0.92 & 0.86 & 0.89 \\
 \midrule
-accuracy     & \multicolumn{3}{c}{0.90} & 829 \\
-macro avg    & 0.89 & 0.90 & 0.89 & 829 \\
-weighted avg & 0.90 & 0.90 & 0.90 & 829 \\
+Accuracy   & \multicolumn{3}{c}{0.90} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
+
+% --- Confusion matrix ---
 \begin{figure}[h]
   \centering
-  \includegraphics[width=0.15\textwidth]{../assets/final_report_assets/mfcc_p2_model_arch.png}
-  \caption{Phase 2 MFCC + MLP — Model diagram.}
-  \label{fig:phase2_MFCC_model_architecture}
-\end{figure}
-\begin{figure}[h]
-  \centering
-  \includegraphics[width=20mm]{../assets/phase2_mfcc_mlp_confusion.png}
-  \caption{Phase 2 MFCC + MLP — Confusion matrix.}
-  \label{fig:phase2_mfcc_mlp_confusion}
+  \includegraphics[width=0.7\textwidth]{../assets/phase2_mfcc_mlp_confusion.png}
+  \caption{Phase~2 MFCC+MLP—Confusion matrix.}
+  \label{fig:phase2_mfcc_mlp_confusion_article}
 \end{figure}
 
-\newpage
-\subsection{Phase 2 — MFCC + ResNet}
-\noindent\textbf{Input:} MFCC feature maps; \textbf{Backbone:} ResNet-style CNN.
+\paragraph{Discussion.}
+The MFCC+MLP model reaches an overall accuracy of \textbf{0.90}, a modest improvement compared to the end-to-end Waveform ResNet (0.88). This suggests that using handcrafted spectral features (MFCCs) provides a clearer representation of the acoustic differences between Drummy and Tight roofs than raw waveform learning alone. The MLP classifier, while relatively simple, benefits from the structured input and demonstrates consistent performance across both classes.
+
+The confusion matrix in Figure~\ref{fig:phase2_mfcc_mlp_confusion_article} highlights this balance. For Drummy samples, recall is strong at 0.93, showing the model reliably identifies most Drummy roofs, though 45 Tight samples are mistakenly labeled as Drummy. For Tight samples, precision is high at 0.92, indicating that when the model predicts Tight it is usually correct. However, recall lags slightly at 0.86, meaning 41 Tight roofs are misclassified as Drummy. The F1 scores for both classes (0.90 for Drummy and 0.89 for Tight) indicate that neither class is severely disadvantaged.
+
+Compared to the Phase~2 ResNet, this model shows better discrimination of Tight features, but still struggles with borderline cases near the decision boundary. The fact that a simple MLP on MFCCs outperforms a deeper ResNet on raw waveforms suggests that end-to-end learning may require more data or stronger regularization to fully capture class-specific patterns. While the improvement here is incremental, it establishes that feature-engineering–driven approaches remain competitive, especially when data is limited.
+
+
+% --- Architecture diagram ---
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.3\textwidth]{../assets/final_report_assets/mfcc_p2_model_arch.png}
+  \caption{Phase~2 MFCC+MLP—Model architecture.}
+  \label{fig:phase2_mfcc_mlp_architecture}
+\end{figure}
+
+
+
+\FloatBarrier
+\subsection{Phase 2—MFCC+ResNet}
+\textbf{Accuracy:} \textbf{0.93} (best overall with balanced recall).
 
 \begin{table}[h]
 \centering
-\caption{Phase 2 MFCC + ResNet — Classification report.}
-\begin{tabular}{@{}lccc r@{}}
+\caption{Phase~2 MFCC+ResNet—Classification report (test set, $n{=}829$).}
+\begin{tabular}{lccc}
 \toprule
-{} & precision & recall & f1-score & support \\
+Class & Precision & Recall & F1 \\
 \midrule
-drummy (0)   & 0.94 & 0.93 & 0.93 & 466 \\
-tight (1)    & 0.91 & 0.92 & 0.92 & 363 \\
+Drummy (0) & 0.92 & 0.95 & 0.94 \\
+Tight (1)  & 0.94 & 0.91 & 0.92 \\
 \midrule
-accuracy     & \multicolumn{3}{c}{0.93} & 829 \\
-macro avg    & 0.92 & 0.93 & 0.93 & 829 \\
-weighted avg & 0.93 & 0.93 & 0.93 & 829 \\
+Accuracy   & \multicolumn{3}{c}{0.93} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
+% --- Confusion matrix ---
 \begin{figure}[h]
   \centering
-  \includegraphics[width=0.15\textwidth]{../assets/final_report_assets/mfcc_resnet_p2_model_arch.png}
-  \caption{Phase 2 MFCC + ResNet — Model diagram.}
-  \label{fig:phase2_MFCC_resnet_model_architecture}
-\end{figure}
-\begin{figure}[h]
-  \centering
-  \includegraphics[width=20mm]{../assets/phase2_mfcc_resnet_confusion.png}
-  \caption{Phase 2 MFCC + ResNet — Confusion matrix.}
+  \includegraphics[width=0.7\textwidth]{../assets/phase2_mfcc_resnet_confusion.png}
+  \caption{Phase~2 MFCC+ResNet—Confusion matrix.}
   \label{fig:phase2_mfcc_resnet_confusion}
 \end{figure}
 
+\paragraph{Discussion.}
+Among the Phase~2 models, the MFCC+ResNet achieves the best overall performance, reaching an accuracy of \textbf{0.93} with balanced precision and recall across classes. This architecture leverages MFCC feature extraction to provide a compact and informative spectral representation, while the ResNet backbone captures higher-order patterns and temporal dependencies more effectively than the MLP baseline.
+
+The confusion matrix in Figure~\ref{fig:phase2_mfcc_resnet_confusion} shows that the model reduces misclassifications compared to both the waveform-based ResNet and the MFCC+MLP. Drummy recall is strong at 0.95, meaning very few Drummy roofs are incorrectly labeled as Tight (32 misclassifications). Tight recall is also relatively high at 0.91, though 29 Tight samples are still mistaken as Drummy. This more symmetric error distribution contrasts with earlier models, where the Tight class suffered disproportionately from lower recall. The F1 scores (0.94 for Drummy, 0.92 for Tight) confirm that both classes are well represented, indicating the network has learned discriminative features for each.
+
+That said, the model is not perfect. Although accuracy improves compared to the MFCC+MLP (0.90), there remains a small but notable set of borderline samples where the network struggles to distinguish Tight from Drummy. These errors likely correspond to acoustically ambiguous impacts where spectral features overlap. While the ResNet adds depth and improves class separation, further gains may require richer input representations (e.g., wavelet features or spectrogram augmentations) or hybrid models that integrate waveform- and MFCC-level features.
+
+Overall, the MFCC+ResNet provides the strongest Phase~2 results so far, with balanced treatment of both classes and a clear improvement in recall for Tight roofs compared to earlier models.
+% --- Architecture diagram ---
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.4\textwidth]{../assets/final_report_assets/mfcc_resnet_p2_model_arch.png}
+  \caption{Phase~2 MFCC+ResNet—Model architecture.}
+  \label{fig:phase2_mfcc_resnet_architecture}
+\end{figure}
+\newpage
+\FloatBarrier
+\subsubsection*{Threshold and Score Analysis (Phase 2)}
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.9\textwidth]{../assets/final_report_assets/p2_mfcc_resnet_scores_by_index_drummy.png}
+  \includegraphics[width=0.9\textwidth]{../assets/final_report_assets/p2_mfcc_resnet_scores_by_index_tight.png}
+  \caption{Phase~2 MFCC+ResNet—Prediction scores by sample index (top: Drummy, bottom: Tight).}
+  \label{fig:p2_scores_by_index}
+\end{figure}
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.45\textwidth]{../assets/final_report_assets/p2_mfcc_resnet_score_distribution_hist.png}
+  \caption{Phase~2 MFCC+ResNet—Distribution of predicted scores by true class.}
+  \label{fig:p2_score_distribution}
+\end{figure}
+
+\paragraph{Thresholding and boundary separation.}
+Unlike Phase~1, where the end-to-end ResNet produced scores that clustered cleanly away from the threshold (Drummy near 0.0, Tight near 1.0), the Phase~2 MFCC+ResNet shows many predictions lying closer to the decision boundary at 0.5 (Figures~\ref{fig:p2_scores_by_index}--\ref{fig:p2_score_distribution}). This raises concerns about how sharply the model separates the two classes. In particular, several Drummy samples receive scores above 0.4, while a number of Tight samples fall below 0.6, creating overlap near the threshold and increasing the risk of misclassification.
+
+This behavior suggests that the model has learned useful discriminative features from the MFCCs, but the boundary between Drummy and Tight is less distinct than in Phase~1. Some of these ambiguous cases could be genuine “borderline” acoustics, where the impact sound shares characteristics of both classes, or potential mishits in data collection. Introducing an additional label such as \emph{Unknown} or \emph{Ambiguous} could help capture these uncertain regions, allowing the classifier to flag low-confidence predictions rather than forcing a binary decision. Such a strategy would be especially valuable in safety-critical applications, where acknowledging uncertainty is preferable to overconfident but incorrect predictions.
+
+\FloatBarrier
 \newpage
 \section{Model Discussion}
-\textbf{Phase 1.} The end-to-end ResNet-style model reached \textbf{98\% accuracy}, outperforming PCA+MLP and SVM baselines.
-
-\textbf{Phase 2.} The \textbf{MFCC + ResNet} model achieved the best overall balance of precision/recall across both classes (0.93 accuracy), closely followed by \textbf{MFCC + MLP} (0.90). Pure waveform ResNet (0.88) also performed strongly.
-
-\medskip
-\noindent\textbf{Generalization effects:}
 \begin{itemize}
-  \item \textbf{Label smoothing} contributed roughly \(\sim\) +2\% accuracy.
-  \item \textbf{Tanh} after convolutions added \(\sim\) +2\%, likely by preserving negative polarity in oscillatory signals.
+    \item In Phase 1, the classification task has been pushed to its limits — the end-to-end \textbf{ResNet} model achieved \(\textbf{98.38\%}\) accuracy, outperforming even MFCC-based approaches.
+    \item Across Phase 2 experiments, the \textbf{MFCC + ResNet} model achieved the highest \textbf{F1-score} overall, followed closely by the \textbf{MFCC + MLP} model.
+    \item In terms of class-level performance:
+        \begin{itemize}
+            \item \textbf{MFCC + ResNet} showed more balanced \textbf{recall} across both “drummy” and “tight” classes, indicating better discrimination.
+            \item \textbf{MFCC + MLP} also performed well but had slightly less balanced recall, suggesting a small bias towards one class.
+        \end{itemize}
+    \item Incorporating \textbf{label smoothing} led to an accuracy increase of approximately \(\textbf{+2\%}\), likely due to reducing overconfidence and improving generalization.
+    \item Adding a \textbf{tanh activation} after convolution layers contributed another \(\textbf{+2\%}\) accuracy gain.
+        \begin{itemize}
+            \item \textbf{Intuition:} \texttt{tanh} preserves negative values, which may store important information about waveform amplitudes — especially for oscillatory signals where polarity matters.
+        \end{itemize}
 \end{itemize}
 
 \section{Future Work}
 \begin{itemize}
-  \item Address the discrepancy in input size (Phase 1: 0.75 s / 36k samples; Phase 2: 0.1 s / 4.8k) without resampling—e.g., hierarchical or multi-resolution front ends that accept variable-length inputs.
-  \item Design a \textbf{unified architecture} that can process both datasets directly.
-  \item Implement a \textbf{robust preprocessing} pipeline to automatically detect \& remove mishits (statistical anomaly detection or similarity search seeded by curated mishits).
+    \item Address the challenge of having two distinct datasets (Phase 1 and Phase 2) with different input dimensions:
+        \begin{itemize}
+            \item Phase 1 recordings: 0.75s duration, 36{,}000 samples.
+            \item Phase 2 recordings: 0.1s duration, 4{,}800 samples.
+        \end{itemize}
+        \begin{itemize}
+            \item Current approach involves resampling one dataset to match the other, which may lead to loss of information or introduce artifacts.
+            \item A more elegant solution is needed to handle both datasets without resampling.
+        \end{itemize}
+    \item Develop a unified model architecture that can \textbf{process both dataset types} directly, without needing to resample the data to match a single fixed input dimension.
+    \item Implement a more \textbf{robust preprocessing} pipeline:
+        \begin{itemize}
+            \item Here, \textbf{robust} means capable of automatically detecting and removing \textbf{mishits} or invalid recordings before feature extraction.
+            \item This would involve statistical anomaly detection or learned filtering like similarity search with manually identified mishits to ensure only valid impacts are classified.
+        \end{itemize}
 \end{itemize}
 
 \section{Conclusion}
-Across multiple approaches, \textbf{MFCC + ResNet} delivered the strongest Phase 2 performance with balanced class recall, while an end-to-end \textbf{ResNet} saturated Phase 1 near 98\% accuracy. Small architectural choices (\textbf{label smoothing}, \textbf{tanh}) consistently added measurable gains. Future work will target unified input handling and automated data-quality filtering.
+\begin{itemize}
+    \item \textbf{PCA-based methods} in Phase 1 provided a good starting point, showing that linear feature extraction can capture some structure in the data. However, PCA could not fully model the \textbf{temporal and non-linear patterns} present in acoustic signals.  
+    \item Moving towards \textbf{deeper learning architectures} (ResNet, MFCC+CNN, MLP hybrids) demonstrated clear gains in accuracy and class balance, confirming that raw waveforms and spectrogram-like features benefit from hierarchical feature learning.  
+    \item Architectural refinements such as \textbf{tanh activations} and \textbf{label smoothing} helped reduce overconfidence and improved generalization, adding small but consistent boosts in performance.  
+    \item Overall, results show that while PCA is useful for dimensionality reduction, \textbf{end-to-end deep learning pipelines} are far more effective for real-world classification of mine roof impacts. This underscores the importance of non-linear feature extraction in safety-critical acoustic applications.  
+\end{itemize}
 \end{document}
