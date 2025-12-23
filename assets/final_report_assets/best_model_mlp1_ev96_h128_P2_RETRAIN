@@ -5,7 +5,7 @@ strict digraph model {
 	0 [label=<
                     <TABLE BORDER="0" CELLBORDER="1"
                     CELLSPACING="0" CELLPADDING="4">
-                        <TR><TD>input-tensor<BR/>depth:0</TD><TD>(1, 273)</TD></TR>
+                        <TR><TD>input-tensor<BR/>depth:0</TD><TD>(1, 272)</TD></TR>
                     </TABLE>> fillcolor=lightyellow]
 	subgraph cluster_2 {
 		fontsize=12 label=Sequential labeljust=l style=dashed
@@ -15,7 +15,7 @@ strict digraph model {
                     <TR>
                         <TD ROWSPAN="2">Linear<BR/>depth:2</TD>
                         <TD COLSPAN="2">input:</TD>
-                        <TD COLSPAN="2">(1, 273) </TD>
+                        <TD COLSPAN="2">(1, 272) </TD>
                     </TR>
                     <TR>
                         <TD COLSPAN="2">output: </TD>

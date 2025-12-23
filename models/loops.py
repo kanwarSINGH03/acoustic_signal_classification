@@ -161,7 +161,7 @@ def _logits_to_scores(logits: torch.Tensor) -> torch.Tensor:
     else:
         raise ValueError(f"Unexpected logits shape: {tuple(logits.shape)}")
 
-def _plot_threshold_views(idxs, trues, scores, threshold=0.5, class_names=("drummy (0)", "tight (1)")):
+def _plot_threshold_views(idxs, trues, scores, threshold=0.5, class_names=("unstable (0)", "stable (1)")):
     idxs = np.asarray(idxs)
     trues = np.asarray(trues)
     scores = np.asarray(scores)
@@ -212,7 +212,7 @@ def test(
     test_loader,
     report: bool = False,
     score: bool = False,
-    threshold_viz: bool = True,  # NEW: enable threshold-focused plots
+    threshold_viz: bool = False,  # NEW: enable threshold-focused plots
     threshold: float = 0.5,      # NEW: adjustable threshold
     device: str = "mps",
 ):
@@ -274,10 +274,15 @@ def test(
 
     # ---- Confusion Matrix & Report (optional) ----
     if report:
-        cm = confusion_matrix(trues_arr, preds_arr)
-        ConfusionMatrixDisplay(
-            cm, display_labels=["drummy (0)", "tight (1)"]
-        ).plot(cmap="Blues", values_format=".0f")
+        labels = ["unstable (0)", "stable (1)"]
+
+        cm = confusion_matrix(preds_arr, trues_arr)
+
+        disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
+        disp.plot(cmap="Blues", values_format=".0f")
+
+        plt.xlabel("True label")
+        plt.ylabel("Predicted label")
         plt.title(f"Confusion Matrix (threshold={threshold:.2f})")
         plt.show()
 
@@ -299,7 +304,7 @@ def test(
             classification_report(
                 trues_arr,
                 preds_arr,
-                target_names=["drummy (0)", "tight (1)"],
+                target_names=["unstable (0)", "stable (1)"],
                 zero_division=0,
             ),
         )
@@ -311,7 +316,7 @@ def test(
             trues_arr,
             scores_arr,
             threshold=threshold,
-            class_names=("drummy (0)", "tight (1)"),
+            class_names=("unstable (0)", "stable (1)"),
         )
 
     if score:
