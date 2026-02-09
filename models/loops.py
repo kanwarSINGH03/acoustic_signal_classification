@@ -161,7 +161,7 @@ def _logits_to_scores(logits: torch.Tensor) -> torch.Tensor:
     else:
         raise ValueError(f"Unexpected logits shape: {tuple(logits.shape)}")
 
-def _plot_threshold_views(idxs, trues, scores, threshold=0.5, class_names=("unstable (0)", "stable (1)")):
+def _plot_threshold_views(idxs, trues, scores, threshold=0.5, class_names=("drummy (0)", "tight (1)")):
     idxs = np.asarray(idxs)
     trues = np.asarray(trues)
     scores = np.asarray(scores)
@@ -274,7 +274,7 @@ def test(
 
     # ---- Confusion Matrix & Report (optional) ----
     if report:
-        labels = ["unstable (0)", "stable (1)"]
+        labels = ["drummy (0)", "tight (1)"]
 
         cm = confusion_matrix(preds_arr, trues_arr)
 
@@ -304,7 +304,7 @@ def test(
             classification_report(
                 trues_arr,
                 preds_arr,
-                target_names=["unstable (0)", "stable (1)"],
+                target_names=["drummy (0)", "tight (1)"],
                 zero_division=0,
             ),
         )
@@ -316,7 +316,7 @@ def test(
             trues_arr,
             scores_arr,
             threshold=threshold,
-            class_names=("unstable (0)", "stable (1)"),
+            class_names=("drummy (0)", "tight (1)"),
         )
 
     if score:
