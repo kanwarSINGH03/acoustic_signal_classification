@@ -503,3 +503,28 @@ class MFCC(nn.Module):
         mfcc = self.mfcc_transform(x)   # [B, 40, 10]
         feat = mfcc.flatten(1)          # [B, 400]
         return self.classifier(feat)
+    
+class MFCC_MLP_p1(nn.Module):
+    def __init__(self, dropout_rate: float = 0.5):
+        super().__init__()
+        self.mfcc_transform = torchaudio.transforms.MFCC(
+            sample_rate=48000,
+            n_mfcc=40,
+            melkwargs={
+                "n_fft": 1024,
+                "hop_length": 512,
+                "n_mels": 40,
+            }
+        )
+        self.classifier = nn.Sequential(
+            nn.Linear(2840, 512),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=dropout_rate),
+            nn.Linear(512, 2),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # x: [B, T] mono waveform
+        mfcc = self.mfcc_transform(x)   # [B, 40, 71]
+        feat = mfcc.flatten(1)          # [B, 2840]
+        return self.classifier(feat)

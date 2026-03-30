@@ -212,25 +212,22 @@ def test(
     test_loader,
     report: bool = False,
     score: bool = False,
-    threshold_viz: bool = False,  # NEW: enable threshold-focused plots
-    threshold: float = 0.5,      # NEW: adjustable threshold
+    threshold_viz: bool = False,
+    threshold: float = 0.5,
     device: str = "mps",
 ):
     """
-    Load a trained model, evaluate on test_loader, print accuracy,
-    and optionally display confusion matrix / classification report / ROC / threshold views.
+    Load a trained model, evaluate on test_loader, always compute all metrics,
+    and only display reports/plots when the corresponding flags are True.
     """
     print("[INFO] Testing the model")
     device = torch.device(device)
 
-    # 1) Re-create your model architecture (already passed in)
-    model = model
-
-    # 2) Load the state_dict you saved
+    # 1) Load model weights
     state = torch.load(model_path, map_location=device)
     model.load_state_dict(state)
 
-    # 3) Move & eval
+    # 2) Move to device and eval mode
     model.to(device)
     model.eval()
 
@@ -247,13 +244,12 @@ def test(
             x, y = x.to(device), y.to(device)
             logits = model(x)
 
-            scores1 = _logits_to_scores(logits)         # P(class=1 | x)
-            preds = (scores1 >= threshold).long()        # predicted label by threshold
+            scores1 = _logits_to_scores(logits)   # P(class=1 | x)
+            preds = (scores1 >= threshold).long()
 
             correct += (preds == y).sum().item()
             total += y.size(0)
 
-            # store
             all_trues.append(y.cpu())
             all_scores.append(scores1.cpu())
             all_logits.append(logits.detach().cpu())
@@ -262,33 +258,46 @@ def test(
             all_indices.append(idxs)
             running_idx += y.size(0)
 
-    test_acc = correct / total
+    # -----------------------------
+    # Flatten everything
+    # -----------------------------
+    trues_arr = torch.cat(all_trues).numpy()
+    scores_arr = torch.cat(all_scores).numpy()
+    logits_all = torch.cat(all_logits)
+    idxs_arr = torch.cat(all_indices).numpy()
+    preds_arr = (scores_arr >= threshold).astype(int)
+
+    # -----------------------------
+    # Always compute all metrics
+    # -----------------------------
+    test_acc = correct / total if total > 0 else 0.0
+    cm = confusion_matrix(trues_arr, preds_arr)
+
+    fpr, tpr, roc_thresholds = roc_curve(trues_arr, scores_arr)
+    roc_auc = auc(fpr, tpr)
+
+    class_report = classification_report(
+        trues_arr,
+        preds_arr,
+        target_names=["drummy (0)", "tight (1)"],
+        zero_division=0,
+    )
+
     print(f"Test accuracy (threshold={threshold:.2f}): {test_acc:.4f}")
 
-    # flatten
-    trues_arr  = torch.cat(all_trues).numpy()
-    scores_arr = torch.cat(all_scores).numpy()
-    logits_all = torch.cat(all_logits)  # (for debugging if needed)
-    idxs_arr   = torch.cat(all_indices).numpy()
-    preds_arr  = (scores_arr >= threshold).astype(int)
-
-    # ---- Confusion Matrix & Report (optional) ----
+    # -----------------------------
+    # Display only when requested
+    # -----------------------------
     if report:
         labels = ["drummy (0)", "tight (1)"]
 
-        cm = confusion_matrix(preds_arr, trues_arr)
-
         disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
-        disp.plot(cmap="Blues", values_format=".0f")
-
-        plt.xlabel("True label")
-        plt.ylabel("Predicted label")
-        plt.title(f"Confusion Matrix (threshold={threshold:.2f})")
+        disp.plot(cmap="Reds", values_format=".0f")
+        plt.xlabel("Predicted label")
+        plt.ylabel("True label")
+        plt.title("Confusion Matrix")
         plt.show()
 
-        # ROC with probabilities
-        fpr, tpr, _ = roc_curve(trues_arr, scores_arr)
-        roc_auc = auc(fpr, tpr)
         plt.figure(figsize=(6, 6))
         plt.plot(fpr, tpr, lw=2, label=f"AUC = {roc_auc:.2f}")
         plt.plot([0, 1], [0, 1], lw=2, linestyle="--")
@@ -299,17 +308,9 @@ def test(
         plt.grid(alpha=0.3)
         plt.show()
 
-        print(
-            "\nClassification Report (threshold = {:.2f}):\n".format(threshold),
-            classification_report(
-                trues_arr,
-                preds_arr,
-                target_names=["drummy (0)", "tight (1)"],
-                zero_division=0,
-            ),
-        )
+        print(f"\nClassification Report (threshold = {threshold:.2f}):\n")
+        print(class_report)
 
-    # ---- Threshold-focused visualizations ----
     if threshold_viz:
         _plot_threshold_views(
             idxs_arr,
@@ -319,5 +320,23 @@ def test(
             class_names=("drummy (0)", "tight (1)"),
         )
 
+    # -----------------------------
+    # Return scores only if requested
+    # -----------------------------
     if score:
-        return test_acc
+        return {
+            "accuracy": test_acc,
+            "roc_auc": roc_auc,
+            "confusion_matrix": cm,
+            "classification_report": class_report,
+            "y_true": trues_arr,
+            "y_pred": preds_arr,
+            "y_score": scores_arr,
+            "logits": logits_all.numpy(),
+            "indices": idxs_arr,
+            "fpr": fpr,
+            "tpr": tpr,
+            "roc_thresholds": roc_thresholds,
+        }
+
+    return test_acc
