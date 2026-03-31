@@ -3,6 +3,17 @@ import torch.nn as nn
 import torch
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc
+import torch.nn.functional as F
+import numpy as np
+from sklearn.metrics import (
+    confusion_matrix,
+    classification_report,
+    ConfusionMatrixDisplay,
+    roc_curve,
+    cohen_kappa_score,
+    auc,
+)
+
 
 
 def train(
@@ -132,18 +143,6 @@ def train(
         torch.save(model.state_dict(), model_path)
     return history
 
-
-import torch
-import torch.nn.functional as F
-import matplotlib.pyplot as plt
-import numpy as np
-from sklearn.metrics import (
-    confusion_matrix,
-    classification_report,
-    ConfusionMatrixDisplay,
-    roc_curve,
-    auc,
-)
 
 def _logits_to_scores(logits: torch.Tensor) -> torch.Tensor:
     """
@@ -283,6 +282,8 @@ def test(
         zero_division=0,
     )
 
+    cohen_kappa = cohen_kappa_score(trues_arr, preds_arr)
+
     print(f"Test accuracy (threshold={threshold:.2f}): {test_acc:.4f}")
 
     # -----------------------------
@@ -337,6 +338,7 @@ def test(
             "fpr": fpr,
             "tpr": tpr,
             "roc_thresholds": roc_thresholds,
+            "cohen_kappa": cohen_kappa,
         }
 
     return test_acc
