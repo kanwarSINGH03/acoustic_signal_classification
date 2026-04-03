@@ -181,9 +181,9 @@ def _plot_threshold_views(idxs, trues, scores, threshold=0.5, class_names=("drum
         x, s, mis_c = x[order], s[order], mis_c[order]
 
         plt.figure(figsize=(12, 3.2))
-        plt.plot(x, s, marker="o", ms=3, lw=0.8)
+        plt.plot(x, s, marker="o", ms=3, lw=0.8, color="orange")
         if mis_c.any():
-            plt.scatter(x[mis_c], s[mis_c], s=24, facecolors="none", edgecolors="red", linewidths=1.2, label="Misclassified")
+            plt.scatter(x[mis_c], s[mis_c], s=24, facecolors="none", edgecolors="blue", linewidths=1.2, label="Misclassified")
         plt.hlines([threshold], xmin=x.min(), xmax=x.max(), linestyles="--", label=f"Threshold = {threshold:.2f}")
         plt.ylim(-0.05, 1.05)
         plt.xlabel("Test sample index (order from DataLoader)")
