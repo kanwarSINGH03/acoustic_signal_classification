@@ -160,7 +160,7 @@ def _logits_to_scores(logits: torch.Tensor) -> torch.Tensor:
     else:
         raise ValueError(f"Unexpected logits shape: {tuple(logits.shape)}")
 
-def _plot_threshold_views(idxs, trues, scores, threshold=0.5, class_names=("drummy (0)", "tight (1)")):
+def _plot_threshold_views(idxs, trues, scores, threshold=0.5, class_names=("unstable (0)", "stable (1)")):
     idxs = np.asarray(idxs)
     trues = np.asarray(trues)
     scores = np.asarray(scores)
@@ -190,7 +190,7 @@ def _plot_threshold_views(idxs, trues, scores, threshold=0.5, class_names=("drum
         plt.ylabel("Score = P(class=1 | x)")
         plt.title(f"Scores by Index — True = {class_names[cls]}")
         plt.legend(loc="best")
-        plt.tight_layout()
+        plt.stable_layout()
         plt.show()
 
     # --- Combined histogram to see separation ---
@@ -202,7 +202,7 @@ def _plot_threshold_views(idxs, trues, scores, threshold=0.5, class_names=("drum
     plt.ylabel("Count")
     plt.title("Score Distribution by True Class")
     plt.legend()
-    plt.tight_layout()
+    plt.stable_layout()
     plt.show()
 
 def test(
@@ -278,7 +278,7 @@ def test(
     class_report = classification_report(
         trues_arr,
         preds_arr,
-        target_names=["drummy (0)", "tight (1)"],
+        target_names=["unstable (0)", "stable (1)"],
         zero_division=0,
     )
 
@@ -290,7 +290,7 @@ def test(
     # Display only when requested
     # -----------------------------
     if report:
-        labels = ["drummy (0)", "tight (1)"]
+        labels = ["unstable (0)", "stable (1)"]
 
         disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
         disp.plot(cmap="Reds", values_format=".0f")
@@ -318,7 +318,7 @@ def test(
             trues_arr,
             scores_arr,
             threshold=threshold,
-            class_names=("drummy (0)", "tight (1)"),
+            class_names=("unstable (0)", "stable (1)"),
         )
 
     # -----------------------------
