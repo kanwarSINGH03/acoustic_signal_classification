@@ -180,29 +180,34 @@ def _plot_threshold_views(idxs, trues, scores, threshold=0.5, class_names=("unst
         order = np.argsort(x)
         x, s, mis_c = x[order], s[order], mis_c[order]
 
+        plt.rcParams.update({'font.size': 14})
+
         plt.figure(figsize=(12, 3.2))
         plt.plot(x, s, marker="o", ms=3, lw=0.8, color="orange")
         if mis_c.any():
             plt.scatter(x[mis_c], s[mis_c], s=24, facecolors="none", edgecolors="blue", linewidths=1.2, label="Misclassified")
         plt.hlines([threshold], xmin=x.min(), xmax=x.max(), linestyles="--", label=f"Threshold = {threshold:.2f}")
         plt.ylim(-0.05, 1.05)
-        plt.xlabel("Test sample index (order from DataLoader)")
-        plt.ylabel("Score = P(class=1 | x)")
-        plt.title(f"Scores by Index — True = {class_names[cls]}")
-        plt.legend(loc="best")
-        plt.stable_layout()
+        plt.xlabel("Test sample index ", fontsize=14)
+        plt.ylabel("Score = P(class=1 | x)", fontsize=14)
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
+        plt.title(f"Scores by Index — True = {class_names[cls]}", fontsize=14)
+        plt.legend(loc="best", fontsize=14)
         plt.show()
 
     # --- Combined histogram to see separation ---
+    plt.rcParams.update({'font.size': 14})
     plt.figure(figsize=(8, 4))
     plt.hist(scores[trues == 0], bins=30, alpha=0.7, label=class_names[0])
     plt.hist(scores[trues == 1], bins=30, alpha=0.7, label=class_names[1])
     plt.axvline(threshold, linestyle="--", label=f"Threshold = {threshold:.2f}")
-    plt.xlabel("Score = P(class=1 | x)")
-    plt.ylabel("Count")
-    plt.title("Score Distribution by True Class")
-    plt.legend()
-    plt.stable_layout()
+    plt.xlabel("Score = P(class=1 | x)", fontsize=14)
+    plt.ylabel("Count", fontsize=14)
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+    plt.title("Score Distribution by True Class", fontsize=14)
+    plt.legend(fontsize=14)
     plt.show()
 
 def test(
@@ -292,20 +297,27 @@ def test(
     if report:
         labels = ["unstable (0)", "stable (1)"]
 
+        plt.rcParams.update({'font.size': 14})
+
         disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
         disp.plot(cmap="Reds", values_format=".0f")
-        plt.xlabel("Predicted label")
-        plt.ylabel("True label")
-        plt.title("Confusion Matrix")
+        plt.xlabel("Predicted label", fontsize=14)
+        plt.ylabel("True label", fontsize=14)
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
+        plt.title("Confusion Matrix", fontsize=14)
+        plt.legend(fontsize=14)
         plt.show()
 
         plt.figure(figsize=(6, 6))
         plt.plot(fpr, tpr, lw=2, label=f"AUC = {roc_auc:.2f}")
         plt.plot([0, 1], [0, 1], lw=2, linestyle="--")
-        plt.xlabel("False Positive Rate")
-        plt.ylabel("True Positive Rate")
-        plt.title("Receiver Operating Characteristic")
-        plt.legend(loc="lower right")
+        plt.xlabel("False Positive Rate", fontsize=14)
+        plt.ylabel("True Positive Rate", fontsize=14)
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
+        plt.title("Receiver Operating Characteristic", fontsize=14)
+        plt.legend(loc="lower right", fontsize=14)
         plt.grid(alpha=0.3)
         plt.show()
 
